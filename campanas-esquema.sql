@@ -64,13 +64,13 @@ CREATE TABLE plan (
 );
 
 -- NULL en un cupo del plan de pago significa que el análisis no fijó tope.
--- El plan fundador sí trae los topes escritos en el análisis.
+-- El plan fundador trae 0 minutos de live. El plan campana incluye 60 al mes.
 INSERT INTO plan (
   code, price_minor, currency, interval_unit, campaign_limit, connection_limit,
   donations_enabled, platform_fee_bps, live_minutes_included, seat_limit
 ) VALUES
   ('fundador', 0, 'USD', 'internal', 1, 2, true, 0, 0, 1),
-  ('campana', 19900, 'USD', 'month', 5, NULL, true, 150, 0, NULL);
+  ('campana', 19900, 'USD', 'month', 5, NULL, true, 150, 60, NULL);
 
 -- El análisis la llama user. En PostgreSQL ese nombre es reservado.
 CREATE TABLE app_user (
@@ -80,6 +80,30 @@ CREATE TABLE app_user (
   email_verified_at timestamptz,
   failed_attempts integer NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),
   locked_until timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- El proveedor no crea usuario ni se enlaza por correo.
+-- El subject se guarda después de entrar con la clave local.
+CREATE TABLE external_identity (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES app_user (id),
+  provider text NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  subject text NOT NULL,
+  linked_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (provider, subject),
+  UNIQUE (user_id, provider)
+);
+
+-- State de un uso. El verifier va cifrado y no se escribe en logs.
+CREATE TABLE oauth_transaction (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  provider text NOT NULL CHECK (provider IN ('google', 'microsoft')),
+  state_hash text NOT NULL UNIQUE,
+  verifier_ciphertext bytea NOT NULL,
+  user_id uuid REFERENCES app_user (id),
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -119,6 +143,7 @@ CREATE TABLE session (
   refresh_hash text NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
   revoked_at timestamptz,
+  step_up_until timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -202,9 +227,11 @@ CREATE TABLE campaign (
   starts_on date,
   ends_on date,
   status text NOT NULL CHECK (status IN ('borrador', 'en_revision', 'programada', 'activa', 'pausada', 'cerrada', 'archivada')),
+  slug text NOT NULL UNIQUE,
   store_url text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT campaign_slug_format CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$' AND char_length(slug) BETWEEN 3 AND 60),
   CONSTRAINT campaign_store_https CHECK (store_url IS NULL OR store_url ~ '^https://'),
   CONSTRAINT campaign_electoral_needs_policy CHECK (kind <> 'electoral' OR jurisdiction_policy_id IS NOT NULL OR status = 'borrador'),
   CONSTRAINT campaign_dates CHECK (starts_on IS NULL OR ends_on IS NULL OR ends_on >= starts_on)
@@ -231,6 +258,22 @@ CREATE TABLE privacy_notice (
 CREATE UNIQUE INDEX privacy_notice_one_published
   ON privacy_notice (campaign_id)
   WHERE published_at IS NOT NULL AND retired_at IS NULL;
+
+-- Con un aviso publicado, el slug de la URL pública queda fijo.
+CREATE OR REPLACE FUNCTION campaign_slug_lock() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.slug IS DISTINCT FROM OLD.slug AND EXISTS (
+    SELECT 1 FROM privacy_notice
+    WHERE campaign_id = OLD.id AND published_at IS NOT NULL
+  ) THEN
+    RAISE EXCEPTION 'slug is locked after the privacy notice is published';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER campaign_slug_lock BEFORE UPDATE OF slug ON campaign
+  FOR EACH ROW EXECUTE FUNCTION campaign_slug_lock();
 
 CREATE TABLE campaign_share (
   campaign_id uuid PRIMARY KEY REFERENCES campaign (id),
@@ -374,6 +417,8 @@ CREATE TABLE payout (
 ALTER TABLE campaign_ledger_entry
   ADD CONSTRAINT ledger_payout_fk FOREIGN KEY (payout_id) REFERENCES payout (id);
 
+COMMENT ON TABLE payout IS 'Por encima de 100000 unidades menores de USD, u otra moneda, otro owner aprueba.';
+
 CREATE TABLE ad_spend (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organization (id),
@@ -396,6 +441,7 @@ CREATE TABLE visit_event (
   origin text NOT NULL CHECK (origin IN (
     'facebook', 'instagram', 'tiktok', 'youtube', 'x', 'linkedin', 'direct', 'other'
   )),
+  event_type text NOT NULL CHECK (event_type IN ('view', 'click')),
   postal_code text,
   browser text,
   device_class text CHECK (device_class IS NULL OR device_class IN ('phone', 'tablet', 'desktop')),
@@ -409,7 +455,7 @@ CREATE TABLE visit_event (
   )
 );
 
-COMMENT ON TABLE visit_event IS 'Sin dirección de red. La IP se usa para el código postal y se descarta.';
+COMMENT ON TABLE visit_event IS 'view es la carga del landing. click es el clic en Donar. Sin dirección de red. La IP se usa para el código postal y se descarta.';
 
 CREATE TABLE metric_bucket (
   organization_id uuid NOT NULL REFERENCES organization (id),
@@ -650,10 +696,10 @@ DECLARE
   v_bucket timestamptz := date_trunc('hour', now());
 BEGIN
   INSERT INTO visit_event (
-    organization_id, campaign_id, anonymous_id, origin, postal_code, browser,
+    organization_id, campaign_id, anonymous_id, origin, event_type, postal_code, browser,
     device_class, counted, exclude_reason
   ) VALUES (
-    p_organization_id, p_campaign_id, p_anonymous_id, p_origin, p_postal_code, p_browser,
+    p_organization_id, p_campaign_id, p_anonymous_id, p_origin, p_event_type, p_postal_code, p_browser,
     p_device_class, p_counted, p_exclude_reason
   ) RETURNING id INTO v_id;
 
@@ -745,6 +791,12 @@ CREATE POLICY ad_spend_select ON ad_spend FOR SELECT TO app_api USING (
   OR 'admin' = ANY (app_member_roles(organization_id))
 );
 
+CREATE POLICY membership_self_owner ON membership FOR INSERT TO app_api
+  WITH CHECK (user_id = app_current_user() AND role = 'owner');
+
+CREATE POLICY subscription_owner_insert ON subscription FOR INSERT TO app_api
+  WITH CHECK ('owner' = ANY (app_member_roles(organization_id)));
+
 CREATE POLICY campaign_write ON campaign FOR INSERT TO app_api WITH CHECK (
   'owner' = ANY (app_member_roles(organization_id))
   OR 'admin' = ANY (app_member_roles(organization_id))
@@ -800,9 +852,18 @@ CREATE POLICY spend_write ON ad_spend FOR INSERT TO app_api WITH CHECK (
   'owner' = ANY (app_member_roles(organization_id))
   OR 'admin' = ANY (app_member_roles(organization_id))
 );
+CREATE POLICY spend_update ON ad_spend FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+);
 
 GRANT SELECT ON network_catalog, plan, jurisdiction_policy TO app_api, app_worker;
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_worker;
+GRANT SELECT, INSERT ON external_identity TO app_api;
+
 GRANT SELECT, INSERT, UPDATE ON
   app_user, organization, membership, invitation, session, mfa_secret, mfa_recovery_code,
   email_token, device, subscription, invoice, campaign, privacy_notice, campaign_share,
@@ -827,5 +888,103 @@ CREATE POLICY outbox_insert ON outbox_event FOR INSERT TO app_api
 
 GRANT SELECT ON audit_event TO app_api;
 
+ALTER TABLE external_identity ENABLE ROW LEVEL SECURITY;
+ALTER TABLE external_identity FORCE ROW LEVEL SECURITY;
+CREATE POLICY external_identity_select ON external_identity FOR SELECT TO app_api
+  USING (user_id = app_current_user());
+CREATE POLICY external_identity_insert ON external_identity FOR INSERT TO app_api
+  WITH CHECK (user_id = app_current_user());
+
 REVOKE DELETE ON donation, campaign_ledger_entry, publication_attempt, visit_event,
   webhook_event, audit_event FROM app_worker;
+
+-- State del OAuth de una red. No abre sesión en la consola.
+CREATE TABLE network_oauth_transaction (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES organization (id),
+  user_id uuid NOT NULL REFERENCES app_user (id),
+  network_code text NOT NULL REFERENCES network_catalog (code),
+  state_hash text NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  used_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+GRANT SELECT, INSERT, UPDATE ON network_oauth_transaction TO app_worker;
+
+CREATE POLICY connection_write ON social_connection FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY connection_update ON social_connection FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY content_write ON content_item FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY content_update ON content_item FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY variant_write ON content_variant FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY variant_update ON content_variant FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY approval_write ON content_approval FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY share_write ON campaign_share FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY share_update ON campaign_share FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY publication_write ON publication FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'publisher' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY publication_update ON publication FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'publisher' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'publisher' = ANY (app_member_roles(organization_id))
+);

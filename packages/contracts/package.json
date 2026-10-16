@@ -1,0 +1,18 @@
+{
+  "name": "@broadcastflow/contracts",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "openapi-typescript ../../campanas-openapi.yaml -o src/schema.ts && tsc -p tsconfig.json"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/schema.d.ts"
+    }
+  },
+  "devDependencies": {
+    "openapi-typescript": "^7.10.1",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "broadcastflow",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build -w @broadcastflow/contracts && npm run build -w @broadcastflow/api && npm run build -w @broadcastflow/web && npm run typecheck -w @broadcastflow/tablet",
+    "db:apply": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f campanas-esquema.sql"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "overrides": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  }
+}

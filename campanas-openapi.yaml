@@ -73,6 +73,177 @@ paths:
                 $ref: "#/components/schemas/SessionResponse"
         "401":
           $ref: "#/components/responses/DomainError"
+  /auth/refresh:
+    post:
+      tags: [identidad]
+      operationId: refreshSession
+      summary: Rota el refresh. Si reaparece uno ya usado, revoca la familia.
+      responses:
+        "200":
+          description: Access token nuevo. La web recibe el refresh en cookie.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/DomainError"
+  /auth/logout:
+    post:
+      tags: [identidad]
+      operationId: logout
+      summary: Revoca la sesión del refresh.
+      responses:
+        "204":
+          description: Sesión revocada.
+  /auth/password/forgot:
+    post:
+      tags: [identidad]
+      operationId: forgotPassword
+      summary: CU-17. La respuesta es la misma exista o no la cuenta.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "204":
+          description: Si la cuenta existe, el enlace dura 1 hora.
+  /auth/password/reset:
+    post:
+      tags: [identidad]
+      operationId: resetPassword
+      summary: CU-17. Reemplaza el hash y revoca las sesiones.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordReset"
+      responses:
+        "204":
+          description: Clave reemplazada.
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /auth/verify/resend:
+    post:
+      tags: [identidad]
+      operationId: resendVerification
+      summary: Reenvía el enlace de verificación. La respuesta no revela si el correo existe.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        "204":
+          description: Si la cuenta existe y no está verificada, sale otro enlace.
+  /auth/mfa/enroll:
+    post:
+      tags: [identidad]
+      operationId: enrollMfa
+      summary: CU-16. Entrega el secreto para enrolar. Todavía no queda activo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ticket]
+              properties:
+                ticket: { type: string }
+      responses:
+        "200":
+          description: Secreto TOTP en base32.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MfaEnrollStart"
+        "401":
+          $ref: "#/components/responses/DomainError"
+  /auth/mfa/confirm:
+    post:
+      tags: [identidad]
+      operationId: confirmMfa
+      summary: CU-16. Un código válido guarda el secreto, muestra los ocho códigos y abre sesión.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MfaConfirm"
+      responses:
+        "200":
+          description: Sesión y códigos de recuperación, una sola vez.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MfaEnrollResult"
+        "401":
+          $ref: "#/components/responses/DomainError"
+  /auth/oauth/{provider}/start:
+    post:
+      tags: [identidad]
+      operationId: startOAuth
+      summary: CU-02. URL de autorización con PKCE. No crea usuario.
+      parameters:
+        - $ref: "#/components/parameters/OAuthProvider"
+      responses:
+        "200":
+          description: URL y state. El verifier queda cifrado 10 minutos y no se escribe en logs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OAuthStart"
+  /auth/oauth/{provider}/callback:
+    post:
+      tags: [identidad]
+      operationId: completeOAuth
+      summary: CU-02. Si el subject ya está enlazado, abre sesión. Si no, no crea usuario ni enlaza por correo.
+      parameters:
+        - $ref: "#/components/parameters/OAuthProvider"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthComplete"
+      responses:
+        "200":
+          description: Sesión del usuario ya enlazado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /auth/oauth/{provider}/link:
+    post:
+      tags: [identidad]
+      operationId: linkOAuth
+      summary: CU-02. Guarda el subject después de entrar con la clave local.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OAuthProvider"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OAuthComplete"
+      responses:
+        "204":
+          description: Subject guardado para ese usuario y ese proveedor.
+        "422":
+          $ref: "#/components/responses/DomainError"
   /auth/step-up:
     post:
       tags: [identidad]
@@ -95,6 +266,21 @@ paths:
         "401":
           $ref: "#/components/responses/DomainError"
   /organizations:
+    get:
+      tags: [organizacion]
+      operationId: listOrganizations
+      summary: Organizaciones del usuario autenticado.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Membresías del usuario.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Organization"
     post:
       tags: [organizacion]
       operationId: createOrganization
@@ -119,6 +305,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/Organization"
   /campaigns:
+    get:
+      tags: [campana]
+      operationId: listCampaigns
+      summary: Campañas de la organización.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Campañas visibles para el miembro.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Campaign"
+        "403":
+          $ref: "#/components/responses/DomainError"
     post:
       tags: [campana]
       operationId: createCampaign
@@ -167,14 +372,48 @@ paths:
                 $ref: "#/components/schemas/Campaign"
         "422":
           $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/activate:
+    post:
+      tags: [campana]
+      operationId: activateCampaign
+      summary: Pasa una causa o una comercial de borrador a activa. La electoral sin paquete permanece en borrador.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Campaña activa. Donar sigue apagado hasta que el aviso esté publicado y exista página.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "422":
+          $ref: "#/components/responses/DomainError"
   /campaigns/{campaignId}/privacy-notices:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
       - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      tags: [aviso]
+      operationId: listPrivacyNotices
+      summary: Borradores y versiones publicadas de la campaña.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Versiones, de la más nueva a la más vieja.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PrivacyNotice"
     post:
       tags: [aviso]
-      operationId: publishPrivacyNotice
-      summary: CU-21 Publicar aviso. Crea la versión siguiente y retira la anterior.
+      operationId: savePrivacyNotice
+      summary: CU-21 Guardar borrador. No mide, no cobra y no crea la página de donación.
       security:
         - bearerAuth: []
       requestBody:
@@ -185,13 +424,55 @@ paths:
               $ref: "#/components/schemas/PrivacyNoticeWrite"
       responses:
         "201":
-          description: Versión publicada.
+          description: Borrador guardado. publishedAt va vacío.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/PrivacyNotice"
         "422":
           $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/privacy-notices/{noticeId}/publish:
+    post:
+      tags: [aviso]
+      operationId: publishPrivacyNotice
+      summary: CU-21 Publicar aviso. Retira la versión anterior y crea la página de donación si la campaña no es comercial y el plan tiene donativos.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: noticeId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Versión publicada. La página de donación queda creada cuando el plan y el tipo lo permiten.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyNotice"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /public/campaigns/{slug}:
+    get:
+      tags: [aviso]
+      operationId: readPublicCampaign
+      summary: Landing. El aviso publicado va en el HTML. Sin versión publicada no hay texto ni Donar.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Nombre, aviso publicado si existe, y si Donar está encendido.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicCampaign"
+        "404":
+          description: No hay campaña con ese slug.
   /public/campaigns/{slug}/donations:
     post:
       tags: [donacion]
@@ -218,6 +499,25 @@ paths:
                 $ref: "#/components/schemas/DonationPending"
         "422":
           $ref: "#/components/responses/DomainError"
+  /public/donations/{donationId}:
+    get:
+      tags: [donacion]
+      operationId: readDonationReceipt
+      summary: Recibo del donante. fiscalReceipt es false.
+      parameters:
+        - name: donationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Desglose y estado. El texto fiscal lo muestra la página.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonationRecord"
+        "404":
+          description: Donación inexistente.
   /webhooks/donations:
     post:
       tags: [donacion]
@@ -240,6 +540,8 @@ paths:
           description: Asiento confirmado, o event_id ya visto.
         "400":
           description: Firma o reloj inválidos. El libro no cambia.
+        "422":
+          description: El monto no cuadra con la donación. No queda asiento.
   /webhooks/billing:
     post:
       tags: [donacion]
@@ -265,7 +567,7 @@ paths:
     post:
       tags: [medicion]
       operationId: recordVisit
-      summary: Beacon del landing. Solo corre si el aviso está publicado.
+      summary: Beacon del landing. view es la carga de la página. click es el clic en Donar. Solo corre si el aviso está publicado.
       parameters:
         - name: slug
           in: path
@@ -307,6 +609,91 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Metrics"
+  /campaigns/{campaignId}/spend:
+    post:
+      tags: [medicion]
+      operationId: saveAdSpend
+      summary: Gasto de pauta cargado por la organización. No es un asiento del libro. El directo no tiene CPC.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [network, periodStart, periodEnd, amountMinor, currency]
+              properties:
+                network: { type: string }
+                periodStart: { type: string, format: date }
+                periodEnd: { type: string, format: date }
+                amountMinor: { type: integer, format: int64, minimum: 0 }
+                currency: { type: string, minLength: 3, maxLength: 3 }
+      responses:
+        "201":
+          description: Fila nueva. Un periodo cerrado no se edita; el ajuste es otra fila.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdSpend"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/spend/{spendId}/close:
+    post:
+      tags: [medicion]
+      operationId: closeAdSpend
+      summary: Cierra el periodo. Después el monto no cambia.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: spendId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Periodo cerrado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdSpend"
+  /campaigns/{campaignId}/spend/{spendId}:
+    put:
+      tags: [medicion]
+      operationId: reviseAdSpend
+      summary: Cambia el monto de un periodo abierto.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: spendId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountMinor]
+              properties:
+                amountMinor: { type: integer, format: int64, minimum: 0 }
+      responses:
+        "200":
+          description: Monto actualizado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdSpend"
+        "422":
+          $ref: "#/components/responses/DomainError"
   /organizations/{organizationId}/events:
     get:
       tags: [medicion]
@@ -449,6 +836,207 @@ paths:
                 $ref: "#/components/schemas/DonationRecord"
         "422":
           $ref: "#/components/responses/DomainError"
+  /connections/facebook/start:
+    post:
+      tags: [distribucion]
+      operationId: startFacebookConnect
+      summary: CU-06. State firmado con la organización. No abre sesión.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: URL de autorización de la Página.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authorizationUrl]
+                properties:
+                  authorizationUrl: { type: string }
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /connections/facebook/callback:
+    post:
+      tags: [distribucion]
+      operationId: finishFacebookConnect
+      summary: CU-06. Guarda el token cifrado. Sin pages_manage_posts la conexión queda en reautorización.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state, pageId, scopes]
+              properties:
+                state: { type: string }
+                pageId: { type: string }
+                scopes:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Conexión guardada. El token no viaja en la respuesta.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialConnection"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /connections:
+    get:
+      tags: [distribucion]
+      operationId: listConnections
+      summary: Conexiones de la organización, sin el token.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Páginas conectadas.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SocialConnection"
+  /campaigns/{campaignId}/share:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    put:
+      tags: [distribucion]
+      operationId: saveCampaignShare
+      summary: CU-08 ficha. Sin imagen, el enlace se publica sin vista previa.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignShareWrite"
+      responses:
+        "200":
+          description: Ficha guardada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignShare"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/content-items:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    post:
+      tags: [distribucion]
+      operationId: createContentItem
+      summary: CU-07. Crea la pieza. El texto de cada red va en la variante.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Pieza en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentItem"
+    get:
+      tags: [distribucion]
+      operationId: listContentItems
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Piezas y variantes.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContentItem"
+  /content-items/{contentItemId}/variants:
+    post:
+      tags: [distribucion]
+      operationId: saveContentVariant
+      summary: CU-13. Una variante inválida se guarda y no se puede programar.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: contentItemId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [network, body]
+              properties:
+                network: { type: string }
+                body: { type: string }
+      responses:
+        "200":
+          description: Variante guardada, válida o no.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentVariant"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /publications:
+    post:
+      tags: [distribucion]
+      operationId: schedulePublication
+      summary: CU-08. Rechaza la variante inválida y la conexión en reautorización.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [variantId, connectionId, scheduledAt]
+              properties:
+                variantId: { type: string, format: uuid }
+                connectionId: { type: string, format: uuid }
+                scheduledAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Fila programada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Publication"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /publications/dispatch:
+    post:
+      tags: [distribucion]
+      operationId: dispatchPublications
+      summary: CU-12. Publica las filas vencidas una vez. Un 5xx reintenta. El fallo no borra la pieza.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Filas tomadas en esta pasada.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Publication"
 components:
   securitySchemes:
     bearerAuth:
@@ -466,6 +1054,11 @@ components:
       in: path
       required: true
       schema: { type: string, format: uuid }
+    OAuthProvider:
+      name: provider
+      in: path
+      required: true
+      schema: { type: string, enum: [google, microsoft] }
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -499,6 +1092,34 @@ components:
             - live_network_unavailable
             - rights_retention_active
             - unbalanced
+            - oauth_not_linked
+            - slug_taken
+            - slug_locked
+            - slug_invalid
+            - email_unverified
+            - invalid_credentials
+            - mfa_required
+            - mfa_enroll_required
+            - oauth_not_configured
+            - subject_taken
+            - dates_invalid
+            - country_invalid
+            - timezone_invalid
+            - forbidden
+            - not_draft
+            - idempotency_required
+            - rate_limited
+            - variant_invalid
+            - connection_reauth
+            - connection_limit
+            - network_unavailable
+            - share_invalid
+            - image_invalid
+            - beacon_invalid
+            - spend_invalid
+        ticket:
+          type: string
+          description: Presente cuando el ingreso pide enrolar el segundo factor.
     RegisterRequest:
       type: object
       required: [email, password]
@@ -512,6 +1133,7 @@ components:
         email: { type: string, format: email }
         password: { type: string }
         totp: { type: string, minLength: 6, maxLength: 6 }
+        recoveryCode: { type: string }
     SessionResponse:
       type: object
       required: [accessToken, expiresIn]
@@ -521,6 +1143,47 @@ components:
         refreshToken:
           type: string
           description: Solo la aplicación de tableta. La web lo recibe en cookie.
+    OAuthStart:
+      type: object
+      required: [authorizationUrl, state]
+      properties:
+        authorizationUrl: { type: string, format: uri }
+        state: { type: string }
+    OAuthComplete:
+      type: object
+      required: [code, state]
+      properties:
+        code: { type: string }
+        state: { type: string }
+    PasswordReset:
+      type: object
+      required: [token, password]
+      properties:
+        token: { type: string }
+        password: { type: string, minLength: 12 }
+    MfaEnrollStart:
+      type: object
+      required: [secret, ticket]
+      properties:
+        secret: { type: string }
+        ticket: { type: string, description: Se usa en la confirmación. Lleva el secreto cifrado. }
+    MfaConfirm:
+      type: object
+      required: [ticket, code]
+      properties:
+        ticket: { type: string }
+        code: { type: string, minLength: 6, maxLength: 6 }
+    MfaEnrollResult:
+      allOf:
+        - $ref: "#/components/schemas/SessionResponse"
+        - type: object
+          required: [recoveryCodes]
+          properties:
+            recoveryCodes:
+              type: array
+              minItems: 8
+              maxItems: 8
+              items: { type: string }
     Organization:
       type: object
       required: [id, name]
@@ -540,6 +1203,12 @@ components:
         timeZone: { type: string }
         startsOn: { type: string, format: date }
         endsOn: { type: string, format: date }
+        slug:
+          type: string
+          minLength: 3
+          maxLength: 60
+          pattern: "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          description: Opcional al crear. Si no viene, el sistema lo genera. Queda fijo al publicar el aviso.
         storeUrl:
           type: string
           nullable: true
@@ -548,9 +1217,10 @@ components:
       allOf:
         - $ref: "#/components/schemas/CampaignWrite"
         - type: object
-          required: [id, status]
+          required: [id, status, slug]
           properties:
             id: { type: string, format: uuid }
+            slug: { type: string }
             status:
               type: string
               enum: [borrador, en_revision, programada, activa, pausada, cerrada, archivada]
@@ -566,11 +1236,31 @@ components:
       allOf:
         - $ref: "#/components/schemas/PrivacyNoticeWrite"
         - type: object
-          required: [id, version, publishedAt]
+          required: [id, version]
           properties:
             id: { type: string, format: uuid }
             version: { type: integer }
-            publishedAt: { type: string, format: date-time }
+            publishedAt: { type: string, format: date-time, nullable: true }
+    PublicCampaign:
+      type: object
+      required: [name, slug, status, kind, currency, donateEnabled]
+      properties:
+        name: { type: string }
+        slug: { type: string }
+        status: { type: string }
+        kind: { type: string, enum: [electoral, causa, comercial] }
+        currency: { type: string }
+        donateEnabled:
+          type: boolean
+          description: Verdadero con campaña activa, aviso publicado, página de donación y plan con donativos.
+        share:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CampaignShare"
+        notice:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/PrivacyNotice"
     DonationStart:
       type: object
       required: [amountMinor, currency, donorName, donorEmail]
@@ -611,19 +1301,88 @@ components:
         action: { type: string, enum: [access, rectify, cancel, oppose] }
         donorName: { type: string }
         donorEmail: { type: string, format: email }
+    SocialConnection:
+      type: object
+      required: [id, network, externalAccountId, status]
+      properties:
+        id: { type: string, format: uuid }
+        network: { type: string }
+        externalAccountId: { type: string }
+        status: { type: string, enum: [active, reauth] }
+    CampaignShareWrite:
+      type: object
+      required: [title, description]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        imageKey:
+          type: string
+          nullable: true
+          description: https. null publica el enlace sin vista previa.
+    CampaignShare:
+      allOf:
+        - $ref: "#/components/schemas/CampaignShareWrite"
+    ContentVariant:
+      type: object
+      required: [id, network, body, valid]
+      properties:
+        id: { type: string, format: uuid }
+        network: { type: string }
+        body: { type: string }
+        valid: { type: boolean }
+    ContentItem:
+      type: object
+      required: [id, status, variants]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [borrador, en_revision, aprobada] }
+        variants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentVariant"
+    Publication:
+      type: object
+      required: [id, status, scheduledAt]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [scheduled, sending, published, failed, canceled] }
+        scheduledAt: { type: string, format: date-time }
+        variantId: { type: string, format: uuid }
+        connectionId: { type: string, format: uuid }
     VisitBeacon:
       type: object
       required: [anonymousId, eventType]
       properties:
         anonymousId: { type: string, format: uuid }
-        eventType: { type: string, enum: [view, click] }
+        eventType:
+          type: string
+          enum: [view, click]
+          description: view es la carga del landing. click es el clic en Donar.
         referrer: { type: string }
         utmSource: { type: string }
+    AdSpend:
+      type: object
+      required: [id, network, amountMinor, closed]
+      properties:
+        id: { type: string, format: uuid }
+        network: { type: string }
+        amountMinor: { type: integer, format: int64 }
+        closed: { type: boolean }
     Metrics:
       type: object
-      required: [origins, excludedCount]
+      required: [origins, excludedCount, cpcVisible, series]
       properties:
         excludedCount: { type: integer }
+        cpcVisible: { type: boolean, description: Verdadero para owner y admin. }
+        series:
+          type: array
+          items:
+            type: object
+            required: [day, views, clicks]
+            properties:
+              day: { type: string, format: date }
+              views: { type: integer }
+              clicks: { type: integer }
         origins:
           type: array
           items:
@@ -634,13 +1393,13 @@ components:
               views: { type: integer }
               viewShare: { type: number, description: Calculado al leer. }
               clicks: { type: integer }
-              clickRate: { type: number }
+              clickRate: { type: number, description: Clics en Donar de esa red / vistas de esa red. }
               donations: { type: integer }
               donationRate: { type: number }
               cpcMinor:
                 type: integer
                 nullable: true
-                description: Vacío si no hay fila de gasto. Solo owner y admin. El directo no tiene CPC.
+                description: Gasto de esa red / clics en Donar. Vacío si no hay fila de gasto. Solo owner y admin. El directo no tiene CPC.
     LiveSession:
       type: object
       required: [id, status, destinations]

@@ -93,14 +93,14 @@ Abre el enlace. El sistema marca el token usado y escribe la fecha de verificaci
 
 Actor: usuario. Precondición: el usuario existe.
 
-1. Envía correo y contraseña, o vuelve de Google o Microsoft.
+1. Envía correo y contraseña, o vuelve de Google o Microsoft con un subject ya guardado.
 2. El sistema rechaza si el correo no está verificado o la cuenta está bloqueada.
-3. Compara la contraseña.
+3. Si entra con clave, compara la contraseña. Si vuelve del proveedor, busca el subject y no compara el correo.
 4. Crea la sesión. El token de acceso dura 15 minutos y no lleva el rol.
 5. Si el rol lo exige, o si hay TOTP enrolado, incluye CU-16 antes de entregar la cookie de refresh.
 6. El usuario elige organización si tiene más de una.
 
-Alternos: el proveedor no se enlaza solo por correo; hay que entrar con la clave local y entonces se guarda el subject. Al quinto fallo, bloqueo de 15 minutos. La cookie de refresh dura 30 días, rota en cada uso y, si reaparece una ya usada, se revoca toda la familia.
+Alternos: el proveedor no crea usuario y no se enlaza solo por correo. Para guardar el subject hay que entrar antes con la clave local, con el correo ya verificado. Un subject sirve para un solo usuario, y un usuario enlaza cada proveedor una vez. Al quinto fallo de clave, bloqueo de 15 minutos. La cookie de refresh dura 30 días, rota en cada uso y, si reaparece una ya usada, se revoca toda la familia.
 
 ### CU-17 Recuperar contraseña
 
@@ -122,7 +122,9 @@ Decisión de acceso: owner, admin, tesorero y el operador de plataforma entran c
 
 ### CU-05 Crear campaña
 
-Admin o editor, con cupo y suscripción usable. Captura nombre, objetivo, tipo (electoral, causa o comercial), jurisdicción, zona horaria IANA, inicio y fin. El tipo electoral exige paquete de jurisdicción y fuerza aprobación. Se puede guardar sin canales, y en ese caso no pasa a programada. El enlace de tienda, si viene, sigue CU-23. Postcondición: campaña en borrador, sin piezas y sin publicaciones.
+Admin o editor, con cupo y suscripción usable. Captura nombre, objetivo, tipo (electoral, causa o comercial), jurisdicción, zona horaria IANA, inicio y fin. Puede enviar el slug de la URL pública. Si no lo envía, el sistema lo genera a partir del nombre: minúsculas, números y guiones, entre 3 y 60 caracteres. Si ese slug ya existe, se le añade un sufijo. El usuario puede cambiarlo mientras el aviso no esté publicado. Con un aviso publicado, el slug queda fijo.
+
+La electoral sin paquete se guarda en borrador. No cambia de estado ni cobra hasta que el paquete esté cargado. Con paquete, el tipo electoral fuerza aprobación. Se puede guardar sin canales, y en ese caso no pasa a programada. El enlace de tienda, si viene, sigue CU-23. Postcondición: campaña en borrador, sin piezas y sin publicaciones.
 
 Estados: borrador, en revisión, programada, activa, pausada, cerrada, archivada. Pausar detiene salidas. Cerrar cancela lo programado que el worker todavía no tomó. Con donaciones liquidadas no hay delete.
 
@@ -146,7 +148,7 @@ El recurrente es un mandato. Cada ciclo exitoso crea una donación hija. Un cicl
 
 ### CU-10 Dispersar
 
-Precondición: identidad de la organización verificada, cuadre del día en cero, saldo líquido y step-up vigente. La cuenta destino es la ya verificada. Por encima del umbral, otro owner aprueba. Si el cuadre no cierra, no hay dispersión. Un envío fallido deja un asiento inverso.
+Precondición: identidad de la organización verificada, cuadre del día en cero, saldo líquido y step-up vigente. La cuenta destino es la ya verificada. Si el monto supera 1,000 USD (100000 unidades menores), otro owner aprueba. Una dispersión en otra moneda también pide ese segundo owner. Si el cuadre no cierra, no hay dispersión. Un envío fallido deja un asiento inverso.
 
 ### CU-11 Cerrar campaña
 
@@ -154,7 +156,7 @@ No se cierra si hay una publicación en envío o un live en vivo. Se cancelan la
 
 ### CU-19 Emitir en vivo
 
-Actor: owner, admin o publisher. Precondición: campaña causa o comercial, o electoral con paquete de jurisdicción; minutos de live restantes en el plan; cada destino elegido tiene conexión vigente y conector de live encendido. El plan fundador tiene cero minutos.
+Actor: owner, admin o publisher. Precondición: campaña causa o comercial, o electoral con paquete de jurisdicción; minutos de live restantes en el plan; cada destino elegido tiene conexión vigente y conector de live encendido. El plan fundador tiene cero minutos. El plan de pago incluye 60 minutos al mes. Esta historia se construye después de ese plan.
 
 1. Elige la campaña y uno o más destinos del catálogo de live.
 2. El sistema abre una sesión y una fila por destino.
@@ -163,7 +165,7 @@ Actor: owner, admin o publisher. Precondición: campaña causa o comercial, o el
 5. El worker envía un flujo por destino. El landing cambia el video por el reproductor y deja el panel de donar.
 6. Al detener, se cierran los destinos que sigan en vivo, se guarda la grabación y se suman los minutos del mes.
 
-Alternos: un destino falla y los demás siguen, con aviso al editor y al publisher. Sin minutos, la sala no abre. El electoral sin paquete se rechaza. Una red apagada o fuera del catálogo se muestra con el motivo y no recibe flujo. Si el origen se corta, hay 30 segundos para reconectar; al vencer, stop en cada red. A las cuatro horas la sala se corta. Repetir el inicio de la misma sesión no abre una segunda emisión. El donante no emite.
+Alternos: un destino falla y los demás siguen, con aviso al editor y al publisher. Sin minutos, la sala no abre. El electoral sin paquete no abre sala. Una red apagada o fuera del catálogo se muestra con el motivo y no recibe flujo. Si el origen se corta, hay 30 segundos para reconectar; al vencer, stop en cada red. A las cuatro horas la sala se corta. Repetir el inicio de la misma sesión no abre una segunda emisión. El donante no emite.
 
 Catálogo de live: Facebook Página y YouTube salen encendidos. LinkedIn, TikTok y X quedan apagados hasta que esa red autorice la emisión. Instagram no tiene entrada utilizable por un tercero. Threads, Pinterest, WhatsApp, Telegram y Snapchat no son destino.
 
@@ -183,8 +185,8 @@ Actor: owner o admin. Precondición: campaña existente.
 
 1. Redacta responsable, finalidad, datos y plazo.
 2. Puede guardar un borrador. El borrador no mide ni cobra.
-3. Publicar crea la versión siguiente, retira la versión publicada anterior y escribe la fecha.
-4. Desde ese momento el pixel puede correr y el botón Donar puede encenderse, si el resto de CU-09 también se cumple.
+3. Publicar crea la versión siguiente, retira la versión publicada anterior y escribe la fecha. En esa misma transacción crea la página de donación si la campaña no es comercial y el plan tiene donativos. Si la página ya existe, no crea otra.
+4. Desde ese momento el pixel puede correr. El botón Donar puede encenderse si la página quedó creada, la campaña está activa y el resto de CU-09 se cumple.
 
 Alternos: publicar sin responsable, finalidad, datos o plazo se rechaza. El texto de ejemplo del diseño no cuenta como publicado. Una donación ya creada conserva el id de la versión que aceptó, aunque después se publique otra.
 
@@ -264,16 +266,16 @@ Lo ven owner, admin y analyst. Por campaña y por red (Facebook, Instagram, TikT
 
 | Medida | Cálculo |
 | --- | --- |
-| Vistas y % vistas | Cargas contadas del landing, partidas por red |
-| Clics y % clic | Llegadas desde la red, divididas entre las vistas de esa red |
-| % donó | Donaciones liquidadas entre los clics de esa red |
-| CPC | Gasto cargado de esa red dividido entre los clics de llegada |
+| Vistas y % vistas | Cargas contadas del landing, partidas por red. % vistas = vistas de esa red / vistas contadas |
+| Clics y % clic | Clics en Donar, partidos por la red de la visita. % clic = clics de esa red / vistas de esa red |
+| % donó | Donaciones liquidadas / clics en Donar de esa red |
+| CPC | Gasto cargado de esa red / clics en Donar de esa red |
 
 El CPC lo ven owner y admin. Si no hay gasto cargado, el CPC queda vacío y los clics y porcentajes siguen. El directo no tiene CPC. El gasto lo registra la organización; esta fase no compra la pauta. Ese gasto no es un asiento del libro de donativos. Un periodo cerrado no se edita; el ajuste es una fila nueva.
 
 ### Pixel
 
-Corre solo en el landing de esa campaña. Clasifica el origen con utm_source o con el dominio del referente. Guarda código postal aproximado por la red, navegador y tipo de dispositivo (teléfono, tableta o escritorio). No guarda calle, GPS ni identificador del equipo. La dirección de red se usa para la aproximación y no se conserva. La donación se atribuye cuando el cobro sigue en el mismo navegador. Cada organización ve sus campañas.
+Corre solo en el landing de esa campaña. La carga de la página es una vista. El clic en Donar es un clic. Los dos viajan con el mismo identificador anónimo y se guardan con su tipo. Clasifica el origen con utm_source o con el dominio del referente. Guarda código postal aproximado por la red, navegador y tipo de dispositivo (teléfono, tableta o escritorio). No guarda calle, GPS ni identificador del equipo. La dirección de red se usa para la aproximación y no se conserva. La donación se atribuye cuando el cobro sigue en el mismo navegador. Cada organización ve sus campañas.
 
 ### Visitas que no cuentan
 
@@ -309,9 +311,9 @@ Cuando la pasarela abre una disputa, el libro reserva ese monto y lo resta del s
 
 ### Suscripciones
 
-Planes en tablas: precio, intervalo y cupos (asientos, campañas no archivadas, conexiones activas, publicaciones del periodo de facturación, bandera de donativos). El periodo de posts se alinea al periodo de la suscripción. Hasta existir la suscripción de pago, opera un plan interno fundador: 1 campaña, 2 conexiones y donativos activos. Contratar el plan lo reemplaza.
+Planes en tablas: precio, intervalo y cupos (asientos, campañas no archivadas, conexiones activas, publicaciones del periodo de facturación, bandera de donativos, minutos de live). El periodo de posts se alinea al periodo de la suscripción. Hasta existir la suscripción de pago, opera un plan interno fundador: 1 campaña, 2 conexiones, donativos activos y 0 minutos de live. Contratar el plan lo reemplaza.
 
-Referencia de precio de diseño, no lista cerrada: Campaña, 199 USD al mes, 5 campañas, comisión 1.5% sobre el bruto de donativos. La pasarela se suma aparte y se muestra en el recibo.
+Referencia de precio de diseño, no lista cerrada: Campaña, 199 USD al mes, 5 campañas, 60 minutos de live y comisión 1.5% sobre el bruto de donativos. La pasarela se suma aparte y se muestra en el recibo.
 
 ---
 
@@ -400,7 +402,7 @@ En Campaña, Pieza y Programar se ve el preview de la variante en Facebook, Inst
 
 ## 11. Modelo de datos
 
-PostgreSQL. Toda tabla de negocio lleva organization_id, salvo user, plan y el catálogo de redes. Row level security exige ese predicado. Montos en bigint de centavos más char(3). Tokens en bytea cifrado. Medios en almacén de objetos.
+PostgreSQL. Toda tabla de negocio lleva organization_id, salvo user, plan, el catálogo de redes, external_identity y oauth_transaction. Row level security exige ese predicado. Montos en bigint de centavos más char(3). Tokens en bytea cifrado. Medios en almacén de objetos.
 
 Relaciones principales: user N—N organization por membership. Organization 1—1 subscription. Organization 1—N social_connection. Organization 1—N campaign 1—N content_item 1—N content_variant 1—1 publication 1—N publication_attempt. Campaign 1—1 donation_page 1—N donation. Cada liquidación genera asientos en campaign_ledger_entry. Invoice cuelga de subscription y no tiene llave hacia el libro de campaña.
 
@@ -411,7 +413,9 @@ Tablas que cierran los complementos:
 | Tabla | Regla |
 | --- | --- |
 | ad_spend | Campaña, red, periodo y monto. No es libro de donativos. Periodo cerrado no se edita |
-| visit_event | Visita del pixel. counted y exclude_reason. Sin dirección de red conservada |
+| visit_event | Vista o clic en Donar. counted y exclude_reason. Sin dirección de red conservada |
+| external_identity | Proveedor google o microsoft, y el subject. No se enlaza por correo |
+| oauth_transaction | State de un uso y verifier cifrado. Dura 10 minutos |
 | campaign share | Título, descripción e imagen de la ficha del enlace |
 | notification | event_code, channel email o in_app, status, idempotency_key único |
 | mfa_recovery_code | Ocho hashes por usuario. Un uso |
@@ -433,19 +437,19 @@ La fase 1 es el lazo mínimo: entrar, crear la organización y una campaña, rec
 | Orden | Historia | Se acepta cuando |
 | --- | --- | --- |
 | 1 | Cuenta verificada | Un correo nuevo verifica y entra. El duplicado no crea usuario. El token vencido no verifica |
-| 2 | Sesión, 2FA de roles sensibles y recuperación | La clave mala bloquea al quinto intento. La clave nueva revoca sesiones. Owner, admin y tesorero no entran sin código |
+| 2 | Sesión, 2FA de roles sensibles, recuperación y proveedor | La clave mala bloquea al quinto intento. La clave nueva revoca sesiones. Owner, admin y tesorero no entran sin código. Google o Microsoft no crean usuario ni enlazan por correo. Con sesión local, el subject queda guardado |
 | 3 | Organización del owner | El primer ingreso crea la org y el rol owner |
-| 4 | Campaña en borrador | Guarda sin canales. El tipo electoral sin paquete se rechaza |
-| 5 | Aviso, página y elegibilidad | Sin aviso no hay pixel ni Donar. Un rechazo no crea intento de pago |
+| 4 | Campaña en borrador | Guarda sin canales. La electoral sin paquete queda en borrador y no sale de ese estado. Sin slug, el sistema lo genera |
+| 5 | Aviso, página y elegibilidad | El borrador no enciende el pixel ni Donar. Publicar el aviso crea la página si la campaña no es comercial y el plan tiene donativos. Un rechazo no crea intento de pago |
 | 6 | Libro y recibo | Un webhook deja tres asientos que cuadran. El mismo event_id no escribe de nuevo |
 | 7 | Página de Facebook | La Página queda conectada y cifrada. Sin scope queda en reautorización |
 | 8 | Pieza, ficha y preview | La variante inválida no se programa. La ficha sin imagen no se publica como vista previa |
 | 9 | Salida a Facebook | La fila programada publica una vez. Un 5xx reintenta. El fallo no borra la pieza |
-| 10 | Medición | El tablero parte vistas, clics y porcentajes por red, y deja fuera recargas y vistas previas. El CPC usa el gasto cargado |
-| 11 | Plan de pago | La suscripción active reemplaza al plan fundador. Un pago fallido deja incomplete |
-| 12 | Dispersión y disputas | Sin identidad no hay retiro. Una disputa reserva el monto y baja el saldo disponible |
+| 10 | Medición | El tablero parte vistas, clics en Donar y porcentajes por red, y deja fuera recargas y vistas previas. El CPC usa el gasto cargado y esos clics |
+| 11 | Plan de pago | La suscripción active reemplaza al plan fundador e incluye 60 minutos de live. Un pago fallido deja incomplete |
+| 12 | Dispersión y disputas | Sin identidad no hay retiro. Por encima de 1,000 USD otro owner aprueba. Una disputa reserva el monto y baja el saldo disponible |
 | 13 | Aviso versionado y enlace de tienda | Sin versión publicada no hay pixel ni Donar. La donación guarda esa versión. Una URL que no es https no reemplaza la anterior |
-| 14 | Live | Facebook y YouTube reciben flujo. Un destino fallido no apaga el otro. Sin minutos la sala no abre |
+| 14 | Live | Se construye después del plan de pago. Facebook y YouTube reciben flujo. Un destino fallido no apaga el otro. Sin minutos la sala no abre |
 | 15 | CFDI del plan | La factura pagada guarda un folio. El mismo id no timbra dos veces. El recibo del donante dice que no es deducible |
 | 16 | Derechos del donante | Se anonimiza nombre y correo cuando el plazo ya lo permite. El monto del libro permanece |
 
@@ -455,10 +459,16 @@ Cada historia se prueba con el flujo principal y con los alternos de su caso.
 
 ## 13. Decisiones que ordenan el sistema
 
-1. Dos libros: campaña y comercial. Louder, en este documento, no es la marca del producto. El proveedor de software cobra un precio de servicio y no aparece como aportante.
+1. Dos libros: campaña y comercial. El proveedor de software cobra un precio de servicio y no aparece como aportante.
 2. Login con 2FA para quien administra o mueve dinero. Verificación de persona solo al habilitar la dispersión y al cambiar el owner.
 3. El pixel y el donativo dependen del aviso de privacidad publicado en el landing.
 4. El tablero muestra clics, porcentajes y origen por red. El CPC depende del gasto cargado, no de una compra de pauta hecha por el sistema.
 5. El operador de plataforma supervisa y no reescribe el libro.
 6. El live tiene un origen y un destino por red. El CFDI es del plan. El enlace de tienda no es un pedido. El aviso publicado se versiona y la donación conserva esa versión.
+7. La electoral sin paquete permanece en borrador, no cobra y no abre sala.
+8. El plan de pago incluye 60 minutos de live al mes. El live se construye después de ese plan. El fundador sigue en 0.
+9. La URL pública usa un slug. Si el usuario no lo escribe, el sistema lo genera. Con el aviso publicado, el slug queda fijo.
+10. Google y Microsoft entran en el primer contrato. No crean usuario ni se enlazan por correo. El subject se guarda después de entrar con la clave local.
+11. El aviso tiene borrador y publicación. Publicar crea la página de donación si la campaña no es comercial y el plan tiene donativos.
+12. Una vista es la carga del landing. Un clic es el clic en Donar. El segundo owner aprueba la dispersión por encima de 1,000 USD.
 )

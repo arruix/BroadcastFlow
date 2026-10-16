@@ -142,7 +142,7 @@ Cada módulo tiene dueño de tablas. Otro módulo no escribe esas tablas; llama 
 
 | Módulo | Tablas que posee | Operaciones que expone |
 | --- | --- | --- |
-| Identidad | user, session, mfa, email_token, device | registrar, verificar, entrar, step-up, registrar tableta |
+| Identidad | user, session, mfa, email_token, device, external_identity, oauth_transaction | registrar, verificar, entrar, enlazar proveedor, step-up, registrar tableta |
 | Organización | organization, membership, invitation | crear organización, invitar |
 | Campaña | campaign, content, approval, share | crear, guardar pieza, guardar ficha |
 | Distribución | social_connection, publication, attempt | conectar, programar, ejecutar |
@@ -210,12 +210,12 @@ Tres relojes distintos. No se trata igual una visita, un pago y un reporte.
 
 1. El landing web solo envía el beacon si el aviso de privacidad está publicado.
 2. La API clasifica bots, vista previa de red, recarga de 30 minutos y petición sin agente.
-3. Inserta `visit_event` con `counted` y `exclude_reason`.
+3. Inserta `visit_event` con el tipo (`view` o `click`), `counted` y `exclude_reason`. La carga del landing es `view`. El clic en Donar es `click`.
 4. Si cuenta, suma 1 al cubo `(campaña, origen, hora, tipo de evento)` y escribe el outbox.
 5. El worker publica en Redis el canal de esa organización.
 6. La consola web y la app de tableta, si están abiertas en el tablero, reciben el SSE y vuelven a leer los cubos del rango.
 
-Los porcentajes no se guardan. La lectura hace `% vistas = vistas de la red / vistas contadas`, `% clic = clics de llegada / vistas de esa red`, `% donó = donaciones liquidadas / clics de esa red`. El CPC es gasto del periodo en esa red / clics de llegada, o vacío si no hay fila en `ad_spend`. Las dos superficies pintan la misma lectura. No hay un cálculo en el cliente.
+Los porcentajes no se guardan. La lectura hace `% vistas = vistas de la red / vistas contadas`, `% clic = clics en Donar de esa red / vistas de esa red`, `% donó = donaciones liquidadas / clics en Donar de esa red`. El CPC es gasto del periodo en esa red / clics en Donar de esa red, o vacío si no hay fila en `ad_spend`. Las dos superficies pintan la misma lectura. No hay un cálculo en el cliente.
 
 La donación liquidada entra al mismo cubo de origen cuando el cobro trae el identificador anónimo de esa visita. El cubo de dinero se actualiza en la misma transacción del asiento, no desde el navegador ni desde la tableta.
 
@@ -336,7 +336,7 @@ Desde la plataforma se emite un live de la campaña a las redes que tengan conec
 
 Lo inician owner, admin y publisher, desde la web o desde la tableta. El editor y el tesorero no abren la sala. El donante no emite: en el landing ve el reproductor y el panel de donar.
 
-El tipo causa puede emitir. El tipo comercial puede emitir. El tipo electoral espera el paquete de jurisdicción, igual que el cobro. El plan fundador trae cero minutos. El plan de pago trae `live_minutes_included`; el número es comercial y vive en la fila del plan. El contador es por organización y por mes. Si no quedan minutos, no se abre otra sala. Una sala abierta se corta a las cuatro horas.
+El tipo causa puede emitir. El tipo comercial puede emitir. El tipo electoral espera el paquete de jurisdicción, igual que el cobro. El plan fundador trae cero minutos. El plan de pago trae 60 minutos en `live_minutes_included`. El contador es por organización y por mes. Si no quedan minutos, no se abre otra sala. Una sala abierta se corta a las cuatro horas. Esta salida se construye después de la historia del plan de pago.
 
 ### Catálogo
 
@@ -375,13 +375,13 @@ App nativa de teléfono, instalador de escritorio, invitaciones, segunda red de 
 Sigue la tabla del análisis y le suma el cimiento técnico en el primer incremento. La web acompaña cada historia de consola. La tableta no bloquea el libro ni el landing: se entrega en cuanto el endpoint que necesita ya está en staging.
 
 1. Repositorio con API, web y app de tableta, módulos vacíos, PostgreSQL, RLS, migraciones, CI y staging. El paquete de contratos compila aunque las pantallas estén vacías.
-2. Historias 1 a 4 en la web: cuenta, 2FA de roles sensibles, organización, campaña en borrador, con la URL de tienda si la campaña la trae. La tableta entra con el mismo login y la lista de campañas en solo lectura.
-3. Historias 5 y 6 en la web pública: aviso con versión, donación, libro, webhook idempotente, recibo con el texto fiscal, WAF, límite de tasa, saneo, CSP y CDN. La tableta no cobra.
+2. Historias 1 a 4 en la web: cuenta, 2FA de roles sensibles, enlace de Google o Microsoft después de la clave local, organización y campaña en borrador, con slug generado o escrito por el usuario y con la URL de tienda si la campaña la trae. La tableta entra con el mismo login y la lista de campañas en solo lectura.
+3. Historias 5 y 6 en la web pública: borrador y publicación del aviso, página de donación creada al publicar, donación, libro, webhook idempotente, recibo con el texto fiscal, WAF, límite de tasa, saneo, CSP y CDN. La tableta no cobra.
 4. Historias 7 a 9: Facebook en la web, pieza, ficha, preview y publicación. La tableta muestra el preview en dos paneles y abre el OAuth en el navegador.
-5. Live de la sección 12: sala en web y tableta, salida a Facebook Página y YouTube, reproductor en el landing, cuota de minutos. Una red que falle no apaga la otra.
-6. Historia 10: pixel, exclusiones, cubos, SSE, tablero y carga de gasto. El tablero queda en la web y en la tableta. El gasto se carga en la web y se consulta en la tableta.
-7. Historia 11 en la web: suscripción, CFDI del plan y reemplazo del plan fundador.
-8. Historia 12 en la web: dispersión, disputas y reporte del libro, después del restore ensayado y de la revisión de seguridad. La tableta consulta disputas y pide el PDF.
+5. Historia 10: pixel, exclusiones, cubos de vista y de clic en Donar, SSE, tablero y carga de gasto. El tablero queda en la web y en la tableta. El gasto se carga en la web y se consulta en la tableta.
+6. Historia 11 en la web: suscripción con 60 minutos de live, CFDI del plan y reemplazo del plan fundador.
+7. Live de la sección 12: sala en web y tableta, salida a Facebook Página y YouTube, reproductor en el landing, cuota de 60 minutos. Una red que falle no apaga la otra. El plan fundador no abre sala.
+8. Historia 12 en la web: dispersión, segundo owner por encima de 1,000 USD, disputas y reporte del libro, después del restore ensayado y de la revisión de seguridad. La tableta consulta disputas y pide el PDF.
 9. Consola de plataforma en la web, sobre los mismos hechos, sin un segundo libro.
 
-Al cerrar el paso 6 el admin ya ve clics, porcentajes y origen en el navegador y en la tableta. Al cerrar el paso 3 el dinero ya cuadra aunque el tablero todavía no exista. Al cerrar el paso 5 ya se puede emitir a Facebook y a YouTube desde la web o desde la tableta.
+Al cerrar el paso 5 el admin ya ve clics, porcentajes y origen en el navegador y en la tableta. Al cerrar el paso 3 el dinero ya cuadra aunque el tablero todavía no exista. Al cerrar el paso 7 ya se puede emitir a Facebook y a YouTube desde la web o desde la tableta.

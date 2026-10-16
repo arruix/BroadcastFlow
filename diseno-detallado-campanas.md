@@ -18,10 +18,10 @@ La consola conecta como `app_api`, sujeta a RLS, con `app.user_id` puesto en la 
 
 | Caso | Tablas | Operación HTTP |
 | --- | --- | --- |
-| CU-01, CU-18, CU-02, CU-16 | `app_user`, `email_token`, `session`, `mfa_secret` | `POST /auth/register`, `/auth/verify`, `/auth/login`, `/auth/step-up` |
+| CU-01, CU-18, CU-02, CU-16 | `app_user`, `email_token`, `session`, `mfa_secret`, `external_identity`, `oauth_transaction` | `POST /auth/register`, `/auth/verify`, `/auth/login`, `/auth/oauth/{provider}/start`, `/callback`, `/link`, `/auth/step-up` |
 | Organización del owner | `organization`, `membership`, `subscription` sobre el plan `fundador` | `POST /organizations` |
-| CU-05, CU-23 | `campaign.store_url` | `POST /campaigns`, `PATCH /campaigns/{id}` |
-| CU-21 | `privacy_notice` | `POST /campaigns/{id}/privacy-notices` |
+| CU-05, CU-23 | `campaign.slug`, `campaign.store_url` | `POST /campaigns`, `PATCH /campaigns/{id}` |
+| CU-21 | `privacy_notice` en borrador; al publicar, también `donation_page` si la campaña no es comercial y el plan tiene donativos | `POST /campaigns/{id}/privacy-notices`, `POST /campaigns/{id}/privacy-notices/{noticeId}/publish` |
 | CU-09, CU-14 | `donation` con `privacy_notice_id` | `POST /public/campaigns/{slug}/donations` |
 | CU-15 | `webhook_event`, `donation`, tres filas en `campaign_ledger_entry`, `outbox_event` | `POST /webhooks/donations` |
 | CU-20 | `invoice.cfdi_uuid`, `outbox_event` | `POST /webhooks/billing` y el worker del PAC |
@@ -29,7 +29,7 @@ La consola conecta como `app_api`, sujeta a RLS, con `app.user_id` puesto en la 
 | CU-19 | `live_session`, `live_destination`, `live_usage` | `POST /campaigns/{id}/live-sessions`, `/start`, `/stop` |
 | CU-22 | `donation.donor_name`, `donor_email`, `anonymized_at` | `POST /donations/{id}/rights` |
 
-Un cupo NULL en el plan `campana` quiere decir que el análisis no fijó ese tope. El plan `fundador` sí trae los topes escritos: 1 campaña, 2 conexiones, 0 minutos de live. Los minutos del plan de pago se actualizan en la fila `plan`, no en el código.
+Un cupo NULL en el plan `campana` quiere decir que el análisis no fijó ese tope. El plan `fundador` trae los topes escritos: 1 campaña, 2 conexiones, 0 minutos de live. El plan `campana` incluye 60 minutos de live al mes. El live se construye después de esa historia. Una dispersión por encima de 100000 unidades menores de USD, o en otra moneda, pide un segundo owner.
 
 ## 2. Secuencia del webhook que asienta
 
@@ -67,7 +67,7 @@ El webhook de billing usa el otro secreto y la otra ruta. Ahí no se escribe el 
 
 ## 3. Secuencia de la visita que llega al tablero
 
-El beacon solo se envía si CU-21 dejó una versión publicada. La API clasifica. `record_visit` inserta el evento y, si cuenta, suma el cubo, en la misma llamada.
+El beacon solo se envía si CU-21 dejó una versión publicada. La carga del landing manda `view`. El clic en Donar manda `click`. La API clasifica. `record_visit` inserta el evento, con su tipo, y, si cuenta, suma el cubo de ese tipo, en la misma llamada.
 
 ```mermaid
 sequenceDiagram
@@ -138,6 +138,9 @@ Cerrar la campaña (CU-11) llama a este stop si la sesión sigue en vivo.
 | La campaña comercial no abre página de donación | Trigger de `donation_page` |
 | El enlace de tienda es https | `CHECK` de `campaign.store_url` |
 | El electoral sin paquete no sale de borrador | `CHECK` de `campaign` |
+| El slug queda fijo al publicar el aviso | Trigger `campaign_slug_lock` |
+| Una vista y un clic se distinguen | `visit_event.event_type` |
+| El subject del proveedor no se repite | `UNIQUE (provider, subject)` de `external_identity` |
 | Un owner por organización | Índice único parcial de `membership` |
 | Un event_id por proveedor | `UNIQUE (provider, event_id)` |
 | Un CFDI por factura | Índice único de `invoice.cfdi_uuid` |
@@ -149,5 +152,5 @@ Cerrar la campaña (CU-11) llama a este stop si la sesión sigue en vivo.
 1. Aplicar `campanas-esquema.sql` en PostgreSQL 16 vacío.
 2. Generar el paquete TypeScript desde `campanas-openapi.yaml` y compilar la web y la tableta contra ese paquete.
 3. Del webhook: el mismo `event_id` dos veces deja tres asientos, no seis. Un bruto que no cuadra deja cero asientos.
-4. De la visita: una vista previa queda en `counted = false` y no mueve el cubo. Una visita contada aparece en `GET /metrics` sin recargar a mano.
+4. De la visita: una vista previa queda en `counted = false` y no mueve el cubo. Una carga contada suma `view` y un clic en Donar suma `click`. Una visita contada aparece en `GET /metrics` sin recargar a mano.
 5. Del live: un destino fallido deja el otro en `live`. La respuesta de `start` no contiene la llave RTMP.
