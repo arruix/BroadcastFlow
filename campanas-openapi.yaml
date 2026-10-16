@@ -1,0 +1,663 @@
+openapi: 3.0.3
+info:
+  title: Campañas API
+  version: 0.1.0
+  description: >
+    Contrato de las primeras historias y de los tres recorridos que no pueden
+    quedar a medias: asentar el webhook, contar la visita y emitir el live.
+    Las reglas están en analisis-sistema-campanas.md. El token de acceso dura
+    15 minutos y no lleva el rol. El servidor lee el rol en cada petición.
+servers:
+  - url: https://api.example.test/v1
+tags:
+  - name: identidad
+  - name: organizacion
+  - name: campana
+  - name: aviso
+  - name: donacion
+  - name: medicion
+  - name: envivo
+paths:
+  /auth/register:
+    post:
+      tags: [identidad]
+      operationId: register
+      summary: CU-01 Registrarse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+      responses:
+        "201":
+          description: Usuario creado, sin sesión. El correo de verificación sale después del commit.
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /auth/verify:
+    post:
+      tags: [identidad]
+      operationId: verifyEmail
+      summary: CU-18 Verificar correo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        "204":
+          description: Correo verificado.
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /auth/login:
+    post:
+      tags: [identidad]
+      operationId: login
+      summary: CU-02 Iniciar sesión
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Access token. El refresh viaja en cookie HttpOnly en la web, o en el cuerpo solo para la tableta.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
+        "401":
+          $ref: "#/components/responses/DomainError"
+  /auth/step-up:
+    post:
+      tags: [identidad]
+      operationId: stepUp
+      summary: CU-16 Step-up
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, minLength: 6, maxLength: 6 }
+      responses:
+        "204":
+          description: Sesión elevada por 10 minutos.
+        "401":
+          $ref: "#/components/responses/DomainError"
+  /organizations:
+    post:
+      tags: [organizacion]
+      operationId: createOrganization
+      summary: Alta de la organización en el primer ingreso verificado
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, country]
+              properties:
+                name: { type: string }
+                country: { type: string, minLength: 2, maxLength: 2 }
+      responses:
+        "201":
+          description: Organización creada y el usuario queda como owner, con plan fundador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Organization"
+  /campaigns:
+    post:
+      tags: [campana]
+      operationId: createCampaign
+      summary: CU-05 Crear campaña. La URL de tienda es CU-23.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignWrite"
+      responses:
+        "201":
+          description: Campaña en borrador.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    patch:
+      tags: [campana]
+      operationId: updateCampaign
+      summary: CU-23 Fijar o quitar el enlace de tienda, y el resto de campos de borrador
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignWrite"
+      responses:
+        "200":
+          description: Campaña actualizada. storeUrl null quita el enlace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/privacy-notices:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    post:
+      tags: [aviso]
+      operationId: publishPrivacyNotice
+      summary: CU-21 Publicar aviso. Crea la versión siguiente y retira la anterior.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PrivacyNoticeWrite"
+      responses:
+        "201":
+          description: Versión publicada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PrivacyNotice"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /public/campaigns/{slug}/donations:
+    post:
+      tags: [donacion]
+      operationId: startDonation
+      summary: CU-09 y CU-14. El servidor fija el monto que va a la pasarela.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DonationStart"
+      responses:
+        "201":
+          description: Donación pendiente y secreto de cliente de la pasarela. Sin aviso publicado, 422.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonationPending"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /webhooks/donations:
+    post:
+      tags: [donacion]
+      operationId: settleDonationWebhook
+      summary: CU-15. Firma y event_id. Responde después del commit del asiento.
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Cuerpo crudo de la pasarela. La API no confía en el monto del cliente.
+      responses:
+        "200":
+          description: Asiento confirmado, o event_id ya visto.
+        "400":
+          description: Firma o reloj inválidos. El libro no cambia.
+  /webhooks/billing:
+    post:
+      tags: [donacion]
+      operationId: settleBillingWebhook
+      summary: CU-04 y CU-20. Otro secreto. Al marcar la factura pagada, encola el CFDI.
+      parameters:
+        - name: Stripe-Signature
+          in: header
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Suscripción actualizada. El timbrado sale por el outbox, no dentro de esta respuesta.
+        "400":
+          description: Firma o reloj inválidos.
+  /public/campaigns/{slug}/visits:
+    post:
+      tags: [medicion]
+      operationId: recordVisit
+      summary: Beacon del landing. Solo corre si el aviso está publicado.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisitBeacon"
+      responses:
+        "204":
+          description: Evento guardado. La respuesta no dice si contó, para no orientar a quien prueba el filtro.
+        "404":
+          description: Campaña inexistente o sin aviso publicado. No se escribe visita.
+  /campaigns/{campaignId}/metrics:
+    get:
+      tags: [medicion]
+      operationId: readMetrics
+      summary: Tablero. Los porcentajes se calculan en esta lectura.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Cubos del rango. CPC vacío si no hay gasto.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Metrics"
+  /organizations/{organizationId}/events:
+    get:
+      tags: [medicion]
+      operationId: organizationEvents
+      summary: SSE del tablero y del estado del live. Si se corta, el cliente vuelve a leer.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: text/event-stream. Eventos visit.counted y live.destination.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+  /campaigns/{campaignId}/live-sessions:
+    post:
+      tags: [envivo]
+      operationId: openLiveSession
+      summary: CU-19, pasos 1 y 2. No abre todavía la emisión en la red.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connectionIds]
+              properties:
+                connectionIds:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Sesión en ready y un destino pending por conexión.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveSession"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /live-sessions/{liveSessionId}/start:
+    post:
+      tags: [envivo]
+      operationId: startLive
+      summary: CU-19, pasos 3 a 5. Un destino que falla no apaga a los demás.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: liveSessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Token de sala y estado por destino. La llave RTMP no viene en este cuerpo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveSession"
+        "409":
+          description: Esa sesión ya está en vivo.
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /live-sessions/{liveSessionId}/stop:
+    post:
+      tags: [envivo]
+      operationId: stopLive
+      summary: CU-19, paso 6.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: liveSessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Destinos cerrados y minutos sumados.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveSession"
+  /live-sessions/{liveSessionId}:
+    get:
+      tags: [envivo]
+      operationId: readLive
+      summary: Estado de la sesión al volver a primer plano.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: liveSessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Estado actual, sin llaves de ingest.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveSession"
+  /donations/{donationId}/rights:
+    post:
+      tags: [donacion]
+      operationId: donorRights
+      summary: CU-22 Acceso, rectificación, cancelación u oposición.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: donationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DonorRightsRequest"
+      responses:
+        "200":
+          description: Dato de contacto, o fila anonimizada. Los montos no cambian.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DonationRecord"
+        "422":
+          $ref: "#/components/responses/DomainError"
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    OrganizationHeader:
+      name: X-Organization-Id
+      in: header
+      required: true
+      schema: { type: string, format: uuid }
+    CampaignId:
+      name: campaignId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8 }
+  responses:
+    DomainError:
+      description: Regla de negocio rechazada. El cuerpo trae el código, no una traza.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/DomainError"
+  schemas:
+    DomainError:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          enum:
+            - email_taken
+            - weak_password
+            - token_invalid
+            - locked
+            - notice_required
+            - not_eligible
+            - electoral_without_policy
+            - store_url_invalid
+            - commercial_has_no_donation_page
+            - live_minutes_exhausted
+            - live_network_unavailable
+            - rights_retention_active
+            - unbalanced
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 12 }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string }
+        totp: { type: string, minLength: 6, maxLength: 6 }
+    SessionResponse:
+      type: object
+      required: [accessToken, expiresIn]
+      properties:
+        accessToken: { type: string }
+        expiresIn: { type: integer, description: Segundos. 900. }
+        refreshToken:
+          type: string
+          description: Solo la aplicación de tableta. La web lo recibe en cookie.
+    Organization:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    CampaignWrite:
+      type: object
+      required: [name, currency, kind, jurisdiction, timeZone]
+      properties:
+        name: { type: string }
+        goalMinor: { type: integer, format: int64, minimum: 0 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        kind: { type: string, enum: [electoral, causa, comercial] }
+        jurisdiction: { type: string }
+        jurisdictionPolicyId: { type: string, format: uuid }
+        timeZone: { type: string }
+        startsOn: { type: string, format: date }
+        endsOn: { type: string, format: date }
+        storeUrl:
+          type: string
+          nullable: true
+          description: https obligatorio. null quita el enlace. CU-23.
+    Campaign:
+      allOf:
+        - $ref: "#/components/schemas/CampaignWrite"
+        - type: object
+          required: [id, status]
+          properties:
+            id: { type: string, format: uuid }
+            status:
+              type: string
+              enum: [borrador, en_revision, programada, activa, pausada, cerrada, archivada]
+    PrivacyNoticeWrite:
+      type: object
+      required: [controller, purpose, dataCategories, retention]
+      properties:
+        controller: { type: string }
+        purpose: { type: string }
+        dataCategories: { type: string }
+        retention: { type: string }
+    PrivacyNotice:
+      allOf:
+        - $ref: "#/components/schemas/PrivacyNoticeWrite"
+        - type: object
+          required: [id, version, publishedAt]
+          properties:
+            id: { type: string, format: uuid }
+            version: { type: integer }
+            publishedAt: { type: string, format: date-time }
+    DonationStart:
+      type: object
+      required: [amountMinor, currency, donorName, donorEmail]
+      properties:
+        amountMinor: { type: integer, format: int64, minimum: 1 }
+        currency: { type: string, minLength: 3, maxLength: 3 }
+        donorName: { type: string }
+        donorEmail: { type: string, format: email }
+        personKind: { type: string, enum: [individual, organization] }
+        visitAnonymousId: { type: string, format: uuid }
+    DonationPending:
+      type: object
+      required: [donationId, privacyNoticeId, clientSecret]
+      properties:
+        donationId: { type: string, format: uuid }
+        privacyNoticeId: { type: string, format: uuid }
+        clientSecret: { type: string }
+    DonationRecord:
+      type: object
+      required: [id, status, grossMinor, netMinor, processorFeeMinor, platformFeeMinor, currency, privacyNoticeId]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string }
+        grossMinor: { type: integer, format: int64 }
+        netMinor: { type: integer, format: int64 }
+        processorFeeMinor: { type: integer, format: int64 }
+        platformFeeMinor: { type: integer, format: int64 }
+        currency: { type: string }
+        privacyNoticeId: { type: string, format: uuid }
+        donorName: { type: string, nullable: true }
+        donorEmail: { type: string, nullable: true }
+        anonymizedAt: { type: string, format: date-time, nullable: true }
+        fiscalReceipt: { type: boolean, description: Siempre false. No es CFDI deducible. }
+    DonorRightsRequest:
+      type: object
+      required: [action]
+      properties:
+        action: { type: string, enum: [access, rectify, cancel, oppose] }
+        donorName: { type: string }
+        donorEmail: { type: string, format: email }
+    VisitBeacon:
+      type: object
+      required: [anonymousId, eventType]
+      properties:
+        anonymousId: { type: string, format: uuid }
+        eventType: { type: string, enum: [view, click] }
+        referrer: { type: string }
+        utmSource: { type: string }
+    Metrics:
+      type: object
+      required: [origins, excludedCount]
+      properties:
+        excludedCount: { type: integer }
+        origins:
+          type: array
+          items:
+            type: object
+            required: [origin, views, viewShare, clicks, clickRate, donations, donationRate]
+            properties:
+              origin: { type: string }
+              views: { type: integer }
+              viewShare: { type: number, description: Calculado al leer. }
+              clicks: { type: integer }
+              clickRate: { type: number }
+              donations: { type: integer }
+              donationRate: { type: number }
+              cpcMinor:
+                type: integer
+                nullable: true
+                description: Vacío si no hay fila de gasto. Solo owner y admin. El directo no tiene CPC.
+    LiveSession:
+      type: object
+      required: [id, status, destinations]
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [ready, live, ended, failed] }
+        roomToken:
+          type: string
+          description: Presente al iniciar. No incluye la llave RTMP.
+        playbackUrl: { type: string }
+        destinations:
+          type: array
+          items:
+            type: object
+            required: [connectionId, network, status]
+            properties:
+              connectionId: { type: string, format: uuid }
+              network: { type: string }
+              status: { type: string, enum: [pending, live, failed, ended] }
+              failureReason: { type: string }
