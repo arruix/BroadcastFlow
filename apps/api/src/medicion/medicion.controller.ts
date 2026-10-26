@@ -1,4 +1,18 @@
-import { Body, Controller, Get, Headers, HttpCode, MessageEvent, Param, Post, Put, Query, Req, Sse, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  MessageEvent,
+  Param,
+  Post,
+  Put,
+  Query,
+  Req,
+  Sse,
+  UseGuards,
+} from '@nestjs/common';
 import { Observable } from 'rxjs';
 import { AuthGuard, type AuthedRequest } from '../identidad/auth.guard';
 import { DomainException } from '../shared/domain';
@@ -12,10 +26,21 @@ export class VisitaController {
   @HttpCode(204)
   visit(
     @Param('slug') slug: string,
-    @Body() body: { anonymousId?: string; eventType?: string; referrer?: string; utmSource?: string },
+    @Body()
+    body: {
+      anonymousId?: string;
+      eventType?: string;
+      referrer?: string;
+      utmSource?: string;
+    },
     @Req() request: AuthedRequest,
   ) {
-    return this.medicion.record(slug, body, request.header('user-agent'), request.ip ?? '');
+    return this.medicion.record(
+      slug,
+      body,
+      request.header('user-agent'),
+      request.ip ?? '',
+    );
   }
 }
 
@@ -32,7 +57,13 @@ export class MedicionController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    return this.medicion.metrics(request.userId, requiredOrg(organizationId), campaignId, from, to);
+    return this.medicion.metrics(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      from,
+      to,
+    );
   }
 
   @Post('campaigns/:campaignId/spend')
@@ -41,9 +72,21 @@ export class MedicionController {
     @Req() request: AuthedRequest,
     @Headers('x-organization-id') organizationId: string | undefined,
     @Param('campaignId') campaignId: string,
-    @Body() body: { network?: string; periodStart?: string; periodEnd?: string; amountMinor?: number; currency?: string },
+    @Body()
+    body: {
+      network?: string;
+      periodStart?: string;
+      periodEnd?: string;
+      amountMinor?: number;
+      currency?: string;
+    },
   ) {
-    return this.medicion.saveSpend(request.userId, requiredOrg(organizationId), campaignId, body);
+    return this.medicion.saveSpend(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      body,
+    );
   }
 
   @Post('campaigns/:campaignId/spend/:spendId/close')
@@ -55,7 +98,12 @@ export class MedicionController {
     @Param('campaignId') campaignId: string,
     @Param('spendId') spendId: string,
   ) {
-    return this.medicion.closeSpend(request.userId, requiredOrg(organizationId), campaignId, spendId);
+    return this.medicion.closeSpend(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      spendId,
+    );
   }
 
   @Put('campaigns/:campaignId/spend/:spendId')
@@ -67,12 +115,21 @@ export class MedicionController {
     @Param('spendId') spendId: string,
     @Body() body: { amountMinor?: number },
   ) {
-    return this.medicion.reviseSpend(request.userId, requiredOrg(organizationId), campaignId, spendId, body.amountMinor);
+    return this.medicion.reviseSpend(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      spendId,
+      body.amountMinor,
+    );
   }
 
   @Sse('organizations/:organizationId/events')
   @UseGuards(AuthGuard)
-  events(@Req() request: AuthedRequest, @Param('organizationId') organizationId: string): Promise<Observable<MessageEvent>> {
+  events(
+    @Req() request: AuthedRequest,
+    @Param('organizationId') organizationId: string,
+  ): Promise<Observable<MessageEvent>> {
     return this.medicion.events(request.userId, organizationId);
   }
 }

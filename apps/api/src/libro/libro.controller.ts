@@ -9,7 +9,10 @@ export class LibroController {
 
   @Post('donations')
   @HttpCode(200)
-  settle(@Req() request: RawBodyRequest<Request>, @Headers('stripe-signature') signature?: string) {
+  settle(
+    @Req() request: RawBodyRequest<Request>,
+    @Headers('stripe-signature') signature?: string,
+  ) {
     return this.libro.settle(request.rawBody, signature);
   }
 }

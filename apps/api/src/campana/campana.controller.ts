@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Patch,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard, type AuthedRequest } from '../identidad/auth.guard';
 import { type CampaignInput, CampanaService } from './campana.service';
 import { DomainException } from '../shared/domain';
@@ -9,13 +20,20 @@ export class CampanaController {
   constructor(private readonly campanas: CampanaService) {}
 
   @Get()
-  list(@Req() request: AuthedRequest, @Headers('x-organization-id') organizationId?: string) {
+  list(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId?: string,
+  ) {
     return this.campanas.list(request.userId, requiredOrg(organizationId));
   }
 
   @Post()
-  create(@Req() request: AuthedRequest, @Headers('x-organization-id') organizationId: string | undefined, @Body() body: CampaignInput) {
-    return this.campanas.create(request.userId, requiredOrg(organizationId), body);
+  create(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Body() body: CampaignInput,
+  ) {
+    return this.campanas.create(request.userId, organizationId ?? '', body);
   }
 
   @Post(':campaignId/activate')
@@ -25,7 +43,11 @@ export class CampanaController {
     @Headers('x-organization-id') organizationId: string | undefined,
     @Param('campaignId') campaignId: string,
   ) {
-    return this.campanas.activate(request.userId, requiredOrg(organizationId), campaignId);
+    return this.campanas.activate(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+    );
   }
 
   @Patch(':campaignId')
@@ -35,7 +57,12 @@ export class CampanaController {
     @Param('campaignId') campaignId: string,
     @Body() body: CampaignInput,
   ) {
-    return this.campanas.update(request.userId, requiredOrg(organizationId), campaignId, body);
+    return this.campanas.update(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      body,
+    );
   }
 }
 

@@ -1,21 +1,35 @@
-import Link from "next/link";
+import { HomeView } from "./home-view";
 
-export default function Home() {
+type PlanOffer = {
+  code: string;
+  priceMinor: number;
+  currency: string;
+  liveMinutesIncluded: number;
+  campaignLimit: number | null;
+  platformFeeBps: number;
+};
+
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
+
+async function paidPlan(): Promise<PlanOffer | null> {
+  try {
+    const response = await fetch(`${apiUrl}/plans`, { cache: "no-store" });
+    if (!response.ok) return null;
+    const plans = (await response.json()) as PlanOffer[];
+    return plans.find((plan) => plan.code === "campana") ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function Home() {
+  const plan = await paidPlan();
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 px-4 py-10">
-      <h1 className="text-3xl font-semibold">BroadcastFlow</h1>
-      <p>Landing de la campaña y consola de la organización.</p>
-      <nav className="flex flex-col gap-3">
-        <Link className="inline-flex min-h-11 items-center" href="/registro">
-          Crear cuenta
-        </Link>
-        <Link className="inline-flex min-h-11 items-center" href="/ingresar">
-          Entrar
-        </Link>
-        <Link className="inline-flex min-h-11 items-center" href="/tablero">
-          Consola
-        </Link>
-      </nav>
-    </main>
+    <HomeView
+      price={plan ? `${(plan.priceMinor / 100).toFixed(2)} ${plan.currency}` : null}
+      feeBps={plan?.platformFeeBps ?? null}
+      campaignLimit={plan?.campaignLimit ?? null}
+      liveMinutes={plan?.liveMinutesIncluded ?? null}
+    />
   );
 }

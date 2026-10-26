@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import { ApiError, api, explain } from "@/lib/api";
+import { Idioma, useI18n } from "@/lib/i18n";
+import { afterAuthPath, ApiError, api, explain } from "@/lib/api";
 
 type Organization = { id: string; name: string };
 
 export default function Ingresar() {
+  const { t } = useI18n();
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,8 +25,9 @@ export default function Ingresar() {
         method: "POST",
         body: JSON.stringify({ email, password, ...(totp ? { totp } : {}) }),
       });
+      const me = await api<{ platformOperator: boolean }>("/auth/me");
       const organizations = await api<Organization[]>("/organizations");
-      router.push(organizations.length ? "/tablero" : "/organizacion");
+      router.push(afterAuthPath(me.platformOperator, organizations.length));
     } catch (error) {
       if (error instanceof ApiError && error.code === "mfa_required") {
         setNeedCode(true);
@@ -41,30 +44,39 @@ export default function Ingresar() {
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 px-4 py-10">
-      <h1 className="text-3xl font-semibold">Entrar</h1>
+    <main className="mx-auto flex min-h-screen max-w-md flex-col gap-6 px-4 py-12">
+      <div className="flex items-center justify-between gap-3">
+        <Link className="brand w-fit" href="/">
+          BroadcastFlow
+        </Link>
+        <Idioma />
+      </div>
+      <div className="flex flex-col gap-2">
+        <p className="eyebrow">{t.auth.console}</p>
+        <h1 className="text-4xl">{t.auth.signIn}</h1>
+      </div>
       <form className="flex flex-col gap-4" onSubmit={submit}>
         <label className="flex flex-col gap-1">
-          Correo
+          {t.auth.email}
           <input className="min-h-11 rounded border px-3" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         </label>
         <label className="flex flex-col gap-1">
-          Contraseña
+          {t.auth.password}
           <input className="min-h-11 rounded border px-3" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
         </label>
         {needCode ? (
           <label className="flex flex-col gap-1">
-            Código
+            {t.auth.code}
             <input className="min-h-11 rounded border px-3" inputMode="numeric" value={totp} onChange={(event) => setTotp(event.target.value)} required />
           </label>
         ) : null}
         {message ? <p>{message}</p> : null}
         <button className="min-h-11 rounded bg-neutral-900 px-4 text-white" type="submit">
-          Entrar
+          {t.auth.signIn}
         </button>
       </form>
       <Link className="inline-flex min-h-11 items-center" href="/recuperar">
-        Olvidé mi contraseña
+        {t.auth.forgot}
       </Link>
     </main>
   );

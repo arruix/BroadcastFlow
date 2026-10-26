@@ -55,6 +55,125 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Rota el refresh. Si reaparece uno ya usado, revoca la familia. */
+        post: operations["refreshSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoca la sesión del refresh. */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/forgot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-17. La respuesta es la misma exista o no la cuenta. */
+        post: operations["forgotPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/password/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-17. Reemplaza el hash y revoca las sesiones. */
+        post: operations["resetPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/verify/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reenvía el enlace de verificación. La respuesta no revela si el correo existe. */
+        post: operations["resendVerification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/mfa/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-16. Entrega el secreto para enrolar. Todavía no queda activo. */
+        post: operations["enrollMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/mfa/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-16. Un código válido guarda el secreto, muestra los ocho códigos y abre sesión. */
+        post: operations["confirmMfa"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/oauth/{provider}/start": {
         parameters: {
             query?: never;
@@ -130,10 +249,79 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Organizaciones del usuario autenticado. */
+        get: operations["listOrganizations"];
         put?: never;
         /** Alta de la organización en el primer ingreso verificado */
         post: operations["createOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Miembros e invitaciones pendientes. Owner o admin. */
+        get: operations["listMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owner o admin invita por correo, con un rol distinto de owner. El enlace dura 7 días. */
+        post: operations["inviteMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/members/{membershipId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Owner o admin da de baja a un miembro que no es owner. */
+        delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** El invitado, con el correo ya verificado, acepta y queda en la organización. */
+        post: operations["acceptInvitation"];
         delete?: never;
         options?: never;
         head?: never;
@@ -147,7 +335,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Campañas de la organización. */
+        get: operations["listCampaigns"];
         put?: never;
         /** CU-05 Crear campaña. La URL de tienda es CU-23. */
         post: operations["createCampaign"];
@@ -178,6 +367,23 @@ export interface paths {
         patch: operations["updateCampaign"];
         trace?: never;
     };
+    "/campaigns/{campaignId}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pasa una causa o una comercial de borrador a activa. La electoral sin paquete permanece en borrador. */
+        post: operations["activateCampaign"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/campaigns/{campaignId}/privacy-notices": {
         parameters: {
             query?: never;
@@ -189,7 +395,8 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /** Borradores y versiones publicadas de la campaña. */
+        get: operations["listPrivacyNotices"];
         put?: never;
         /** CU-21 Guardar borrador. No mide, no cobra y no crea la página de donación. */
         post: operations["savePrivacyNotice"];
@@ -216,6 +423,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/campaigns/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Landing. El aviso publicado va en el HTML. Sin versión publicada no hay texto ni Donar. */
+        get: operations["readPublicCampaign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/public/campaigns/{slug}/donations": {
         parameters: {
             query?: never;
@@ -233,6 +457,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/public/donations/{donationId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Recibo del donante. fiscalReceipt es false. */
+        get: operations["readDonationReceipt"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/webhooks/donations": {
         parameters: {
             query?: never;
@@ -244,6 +485,125 @@ export interface paths {
         put?: never;
         /** CU-15. Firma y event_id. Responde después del commit del asiento. */
         post: operations["settleDonationWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Planes que se pueden contratar. El fundador no está a la venta. */
+        get: operations["listPlans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscription": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Plan vigente de la organización. */
+        get: operations["readSubscription"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/checkout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-04. Abre la factura. El plan no cambia hasta el webhook de billing. */
+        post: operations["startPlanCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/checkout/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resultado local del pago. En producción lo reemplaza el webhook. */
+        post: operations["completePlanCheckout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-04a. Corta al fin del periodo. Los datos no se borran. */
+        post: operations["cancelSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/downgrade": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Si el uso no cabe en el fundador, el cambio espera al fin del periodo. */
+        post: operations["downgradeSubscription"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/invoices/{invoiceId}/cfdi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-20. Reintenta el mismo id de factura. No timbra dos veces. */
+        post: operations["retryInvoiceCfdi"];
         delete?: never;
         options?: never;
         head?: never;
@@ -301,6 +661,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/campaigns/{campaignId}/spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Gasto de pauta cargado por la organización. No es un asiento del libro. El directo no tiene CPC. */
+        post: operations["saveAdSpend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/spend/{spendId}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Cierra el periodo. Después el monto no cambia. */
+        post: operations["closeAdSpend"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/spend/{spendId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Cambia el monto de un periodo abierto. */
+        put: operations["reviseAdSpend"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/organizations/{organizationId}/events": {
         parameters: {
             query?: never;
@@ -310,6 +721,23 @@ export interface paths {
         };
         /** SSE del tablero y del estado del live. Si se corta, el cliente vuelve a leer. */
         get: operations["organizationEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/live": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Catálogo, minutos restantes y la última sesión. Las redes apagadas traen el motivo. */
+        get: operations["readLiveDesk"];
         put?: never;
         post?: never;
         delete?: never;
@@ -369,6 +797,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/live-sessions/{liveSessionId}/origin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** El origen se cortó o volvió. A los 30 segundos sin origen la sala se detiene. */
+        post: operations["reportLiveOrigin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/live-sessions/{liveSessionId}": {
         parameters: {
             query?: never;
@@ -395,8 +840,459 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** CU-22 Acceso, rectificación, cancelación u oposición. */
+        /** CU-22 Acceso, rectificación, cancelación u oposición. Cancelar u oponerse vacía nombre y correo a los cinco años. Antes, rights_retention_active. */
         post: operations["donorRights"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/youtube/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Conecta el canal que va a recibir el live. El token queda cifrado. */
+        post: operations["startYoutubeConnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/youtube/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Guarda el canal. Sin el permiso de emisión queda en reautorización. */
+        post: operations["finishYoutubeConnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/facebook/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-06. State firmado con la organización. No abre sesión. */
+        post: operations["startFacebookConnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/facebook/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-06. Guarda el token cifrado. Sin pages_manage_posts la conexión queda en reautorización. */
+        post: operations["finishFacebookConnect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Conexiones de la organización, sin el token. */
+        get: operations["listConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/share": {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** CU-08 ficha. Sin imagen, el enlace se publica sin vista previa. */
+        put: operations["saveCampaignShare"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/content-items": {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        get: operations["listContentItems"];
+        put?: never;
+        /** CU-07. Crea la pieza. El texto de cada red va en la variante. */
+        post: operations["createContentItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/content-items/{contentItemId}/variants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-13. Una variante inválida se guarda y no se puede programar. */
+        post: operations["saveContentVariant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/publications": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-08. Rechaza la variante inválida y la conexión en reautorización. */
+        post: operations["schedulePublication"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-10. Sin identidad no hay retiro. Pide step-up. */
+        post: operations["verifyIdentity"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/payout-account": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-10. La cuenta destino queda verificada antes del retiro. */
+        post: operations["savePayoutAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/organizations/{organizationId}/owners": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-10. El owner suma un segundo owner, hasta dos, para aprobar. */
+        post: operations["addSecondOwner"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CU-10. Saldo líquido, asientos y dispersiones. */
+        get: operations["readLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CU-10. Disputas abiertas, con fecha y vencimiento. */
+        get: operations["listDisputes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/payouts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-10. Por encima de 100000 centavos USD, u otra moneda, queda pedida. */
+        post: operations["requestPayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/payouts/{payoutId}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-10. Otro owner aprueba. Quien la pidió no la aprueba. */
+        post: operations["approvePayout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/ledger/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-10. La web o la tablet piden el PDF del libro. */
+        post: operations["requestLedgerReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reports/{reportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CU-10. PDF del libro. */
+        get: operations["downloadLedgerReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Consola del operador. Organizaciones con identidad, campañas, ingreso del mes y pagos atorados. */
+        get: operations["platformSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/organizations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Alta, país, verificación y plan. Sin identidad no se dispersa. */
+        get: operations["listPlatformOrganizations"];
+        put?: never;
+        /** El operador da de alta la organización para un owner. El operador no queda como miembro. */
+        post: operations["createPlatformOrganization"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/organizations/{organizationId}/support": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Modo soporte. El owner ve el acceso y la auditoría guarda quién entró. */
+        post: operations["enterSupportMode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/campaigns/{campaignId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Con libro no se borra. Se pausa la página. */
+        post: operations["pauseCampaignPage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/income.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** CSV de suscripciones y comisiones. Sin neto de campañas. */
+        get: operations["downloadPlatformIncome"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/webhooks/{webhookId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reintenta un webhook guardado. No reescribe cifras del libro. */
+        post: operations["retryWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/platform/users/{userId}/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Con membresías no se elimina. */
+        post: operations["removePlatformUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/publications/dispatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** CU-12. Publica las filas vencidas una vez. Un 5xx reintenta. El fallo no borra la pieza. */
+        post: operations["dispatchPublications"];
         delete?: never;
         options?: never;
         head?: never;
@@ -409,7 +1305,9 @@ export interface components {
     schemas: {
         DomainError: {
             /** @enum {string} */
-            code: "email_taken" | "weak_password" | "token_invalid" | "locked" | "notice_required" | "not_eligible" | "electoral_without_policy" | "store_url_invalid" | "commercial_has_no_donation_page" | "live_minutes_exhausted" | "live_network_unavailable" | "rights_retention_active" | "unbalanced" | "oauth_not_linked" | "slug_taken" | "slug_locked";
+            code: "email_taken" | "weak_password" | "token_invalid" | "locked" | "notice_required" | "not_eligible" | "electoral_without_policy" | "store_url_invalid" | "commercial_has_no_donation_page" | "live_minutes_exhausted" | "live_network_unavailable" | "live_unavailable" | "rights_retention_active" | "unbalanced" | "oauth_not_linked" | "slug_taken" | "slug_locked" | "slug_invalid" | "email_unverified" | "invalid_credentials" | "mfa_required" | "mfa_enroll_required" | "oauth_not_configured" | "subject_taken" | "dates_invalid" | "country_invalid" | "timezone_invalid" | "forbidden" | "not_draft" | "idempotency_required" | "rate_limited" | "variant_invalid" | "connection_reauth" | "connection_limit" | "network_unavailable" | "share_invalid" | "image_invalid" | "beacon_invalid" | "spend_invalid" | "subscription_inactive" | "plan_unavailable" | "step_up_required" | "identity_unverified" | "payout_unavailable" | "approval_invalid" | "owner_limit" | "platform_web_only" | "membership_exists" | "account_blocked" | "operator_required";
+            /** @description Presente cuando el ingreso pide enrolar el segundo factor. */
+            ticket?: string;
         };
         RegisterRequest: {
             /** Format: email */
@@ -421,6 +1319,7 @@ export interface components {
             email: string;
             password: string;
             totp?: string;
+            recoveryCode?: string;
         };
         SessionResponse: {
             accessToken: string;
@@ -438,10 +1337,27 @@ export interface components {
             code: string;
             state: string;
         };
+        PasswordReset: {
+            token: string;
+            password: string;
+        };
+        MfaEnrollStart: {
+            secret: string;
+            /** @description Se usa en la confirmación. Lleva el secreto cifrado. */
+            ticket: string;
+        };
+        MfaConfirm: {
+            ticket: string;
+            code: string;
+        };
+        MfaEnrollResult: components["schemas"]["SessionResponse"] & {
+            recoveryCodes: string[];
+        };
         Organization: {
             /** Format: uuid */
             id: string;
             name: string;
+            role?: string;
         };
         CampaignWrite: {
             name: string;
@@ -482,6 +1398,22 @@ export interface components {
             version: number;
             /** Format: date-time */
             publishedAt?: string | null;
+        };
+        PublicCampaign: {
+            name: string;
+            slug: string;
+            status: string;
+            /** @enum {string} */
+            kind: "electoral" | "causa" | "comercial";
+            currency: string;
+            /** @description Verdadero con campaña activa, aviso publicado, página de donación y plan con donativos. */
+            donateEnabled: boolean;
+            share?: components["schemas"]["CampaignShare"] | null;
+            notice?: components["schemas"]["PrivacyNotice"] | null;
+            /** @description Presente mientras hay una sesión en vivo. El landing cambia el video por este HLS. */
+            live?: {
+                playbackUrl: string;
+            } | null;
         };
         DonationStart: {
             /** Format: int64 */
@@ -531,6 +1463,77 @@ export interface components {
             /** Format: email */
             donorEmail?: string;
         };
+        SocialConnection: {
+            /** Format: uuid */
+            id: string;
+            network: string;
+            externalAccountId: string;
+            /** @enum {string} */
+            status: "active" | "reauth";
+        };
+        CampaignShareWrite: {
+            title: string;
+            description: string;
+            /** @description https. null publica el enlace sin vista previa. */
+            imageKey?: string | null;
+        };
+        CampaignShare: components["schemas"]["CampaignShareWrite"];
+        ContentVariant: {
+            /** Format: uuid */
+            id: string;
+            network: string;
+            body: string;
+            valid: boolean;
+        };
+        ContentItem: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "borrador" | "en_revision" | "aprobada";
+            variants: components["schemas"]["ContentVariant"][];
+        };
+        Publication: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            status: "scheduled" | "sending" | "published" | "failed" | "canceled";
+            /** Format: date-time */
+            scheduledAt: string;
+            /** Format: uuid */
+            variantId?: string;
+            /** Format: uuid */
+            connectionId?: string;
+        };
+        PlanOffer: {
+            code: string;
+            /** Format: int64 */
+            priceMinor: number;
+            currency: string;
+            liveMinutesIncluded: number;
+            campaignLimit?: number | null;
+            connectionLimit?: number | null;
+            /** @description Comisión de la plataforma sobre el bruto */
+            platformFeeBps?: number;
+        };
+        SubscriptionView: {
+            plan: string;
+            /** @enum {string} */
+            status: "internal" | "incomplete" | "active" | "past_due" | "canceled";
+            liveMinutesIncluded: number;
+            /** Format: date-time */
+            currentPeriodEnd?: string | null;
+            cancelAtPeriodEnd: boolean;
+            pendingPlan?: string | null;
+            invoice?: {
+                /** Format: uuid */
+                id?: string;
+                status?: string;
+                /** @enum {string} */
+                cfdiStatus?: "not_required" | "pending" | "stamped" | "failed";
+                /** Format: uuid */
+                cfdiUuid?: string | null;
+            } | null;
+        };
         VisitBeacon: {
             /** Format: uuid */
             anonymousId: string;
@@ -542,8 +1545,24 @@ export interface components {
             referrer?: string;
             utmSource?: string;
         };
+        AdSpend: {
+            /** Format: uuid */
+            id: string;
+            network: string;
+            /** Format: int64 */
+            amountMinor: number;
+            closed: boolean;
+        };
         Metrics: {
             excludedCount: number;
+            /** @description Verdadero para owner y admin. */
+            cpcVisible: boolean;
+            series: {
+                /** Format: date */
+                day: string;
+                views: number;
+                clicks: number;
+            }[];
             origins: {
                 origin: string;
                 views: number;
@@ -557,6 +1576,19 @@ export interface components {
                 /** @description Gasto de esa red / clics en Donar. Vacío si no hay fila de gasto. Solo owner y admin. El directo no tiene CPC. */
                 cpcMinor?: number | null;
             }[];
+        };
+        LiveDesk: {
+            minutesIncluded: number;
+            secondsUsed: number;
+            secondsRemaining: number;
+            networks: {
+                code: string;
+                /** @enum {string} */
+                liveMode: "on" | "off" | "unavailable" | "out";
+                reason?: string | null;
+            }[];
+            connections: components["schemas"]["SocialConnection"][];
+            session?: components["schemas"]["LiveSession"] | null;
         };
         LiveSession: {
             /** Format: uuid */
@@ -672,6 +1704,170 @@ export interface operations {
             401: components["responses"]["DomainError"];
         };
     };
+    refreshSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Access token nuevo. La web recibe el refresh en cookie. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            401: components["responses"]["DomainError"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sesión revocada. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    forgotPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Si la cuenta existe, el enlace dura 1 hora. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    resetPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordReset"];
+            };
+        };
+        responses: {
+            /** @description Clave reemplazada. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    resendVerification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: email */
+                    email: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Si la cuenta existe y no está verificada, sale otro enlace. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    enrollMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ticket: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Secreto TOTP en base32. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaEnrollStart"];
+                };
+            };
+            401: components["responses"]["DomainError"];
+        };
+    };
+    confirmMfa: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MfaConfirm"];
+            };
+        };
+        responses: {
+            /** @description Sesión y códigos de recuperación, una sola vez. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MfaEnrollResult"];
+                };
+            };
+            401: components["responses"]["DomainError"];
+        };
+    };
     startOAuth: {
         parameters: {
             query?: never;
@@ -771,6 +1967,26 @@ export interface operations {
             401: components["responses"]["DomainError"];
         };
     };
+    listOrganizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membresías del usuario. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organization"][];
+                };
+            };
+        };
+    };
     createOrganization: {
         parameters: {
             query?: never;
@@ -796,6 +2012,108 @@ export interface operations {
                     "application/json": components["schemas"]["Organization"];
                 };
             };
+        };
+    };
+    listMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Equipo de la organización. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    inviteMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invitación enviada. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                organizationId: string;
+                membershipId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membresía retirada. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Membresía creada. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listCampaigns: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campañas visibles para el miembro. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"][];
+                };
+            };
+            403: components["responses"]["DomainError"];
         };
     };
     createCampaign: {
@@ -854,6 +2172,55 @@ export interface operations {
             422: components["responses"]["DomainError"];
         };
     };
+    activateCampaign: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaña activa. Donar sigue apagado hasta que el aviso esté publicado y exista página. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Campaign"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    listPrivacyNotices: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Versiones, de la más nueva a la más vieja. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrivacyNotice"][];
+                };
+            };
+        };
+    };
     savePrivacyNotice: {
         parameters: {
             query?: never;
@@ -909,6 +2276,35 @@ export interface operations {
             422: components["responses"]["DomainError"];
         };
     };
+    readPublicCampaign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Nombre, aviso publicado si existe, y si Donar está encendido. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicCampaign"];
+                };
+            };
+            /** @description No hay campaña con ese slug. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     startDonation: {
         parameters: {
             query?: never;
@@ -936,6 +2332,35 @@ export interface operations {
                 };
             };
             422: components["responses"]["DomainError"];
+        };
+    };
+    readDonationReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                donationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Desglose y estado. El texto fiscal lo muestra la página. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DonationRecord"];
+                };
+            };
+            /** @description Donación inexistente. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     settleDonationWebhook: {
@@ -966,6 +2391,187 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description El monto no cuadra con la donación. No queda asiento. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPlans: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Precio y minutos de live incluidos. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanOffer"][];
+                };
+            };
+        };
+    };
+    readSubscription: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Estado, minutos de live y la última factura. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
+                };
+            };
+        };
+    };
+    startPlanCheckout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    plan: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Factura abierta y URL de pago. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: uuid */
+                        invoiceId: string;
+                        checkoutUrl: string;
+                    };
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    completePlanCheckout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    invoiceId: string;
+                    /** @enum {string} */
+                    outcome: "paid" | "failed";
+                };
+            };
+        };
+        responses: {
+            /** @description Suscripción después de aplicar el resultado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
+                };
+            };
+        };
+    };
+    cancelSubscription: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Sigue usable hasta currentPeriodEnd. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
+                };
+            };
+        };
+    };
+    downgradeSubscription: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Plan actual o cambio pendiente. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
+                };
+            };
+        };
+    };
+    retryInvoiceCfdi: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                invoiceId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Factura timbrada, o el fallo visible para el owner. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubscriptionView"];
+                };
             };
         };
     };
@@ -1058,6 +2664,102 @@ export interface operations {
             };
         };
     };
+    saveAdSpend: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    network: string;
+                    /** Format: date */
+                    periodStart: string;
+                    /** Format: date */
+                    periodEnd: string;
+                    /** Format: int64 */
+                    amountMinor: number;
+                    currency: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Fila nueva. Un periodo cerrado no se edita; el ajuste es otra fila. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdSpend"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    closeAdSpend: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                spendId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Periodo cerrado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdSpend"];
+                };
+            };
+        };
+    };
+    reviseAdSpend: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+                spendId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: int64 */
+                    amountMinor: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Monto actualizado. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdSpend"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
     organizationEvents: {
         parameters: {
             query?: never;
@@ -1076,6 +2778,30 @@ export interface operations {
                 };
                 content: {
                     "text/event-stream": string;
+                };
+            };
+        };
+    };
+    readLiveDesk: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Minutos del mes y redes del catálogo. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveDesk"];
                 };
             };
         };
@@ -1167,6 +2893,36 @@ export interface operations {
             };
         };
     };
+    reportLiveOrigin: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                liveSessionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    connected: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Estado después de anotar el origen. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LiveSession"];
+                };
+            };
+        };
+    };
     readLive: {
         parameters: {
             query?: never;
@@ -1218,6 +2974,629 @@ export interface operations {
                 };
             };
             422: components["responses"]["DomainError"];
+        };
+    };
+    startYoutubeConnect: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description URL de autorización del canal. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        authorizationUrl: string;
+                    };
+                };
+            };
+        };
+    };
+    finishYoutubeConnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    state: string;
+                    channelId: string;
+                    scopes: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Conexión guardada. El token no viaja en la respuesta. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialConnection"];
+                };
+            };
+        };
+    };
+    startFacebookConnect: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description URL de autorización de la Página. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        authorizationUrl: string;
+                    };
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    finishFacebookConnect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    state: string;
+                    pageId: string;
+                    scopes: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Conexión guardada. El token no viaja en la respuesta. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialConnection"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    listConnections: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Páginas conectadas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SocialConnection"][];
+                };
+            };
+        };
+    };
+    saveCampaignShare: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignShareWrite"];
+            };
+        };
+        responses: {
+            /** @description Ficha guardada. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignShare"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    listContentItems: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Piezas y variantes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentItem"][];
+                };
+            };
+        };
+    };
+    createContentItem: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Pieza en borrador. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentItem"];
+                };
+            };
+        };
+    };
+    saveContentVariant: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                contentItemId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    network: string;
+                    body: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Variante guardada, válida o no. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContentVariant"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    schedulePublication: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    variantId: string;
+                    /** Format: uuid */
+                    connectionId: string;
+                    /** Format: date-time */
+                    scheduledAt: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Fila programada. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Publication"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    verifyIdentity: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                organizationId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Identidad verificada. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            403: components["responses"]["DomainError"];
+        };
+    };
+    savePayoutAccount: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cuenta verificada. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    addSecondOwner: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Segundo owner agregado. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    readLedger: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Libro de la campaña. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listDisputes: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Disputas abiertas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    requestPayout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dispersión pedida o enviada. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    approvePayout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dispersión enviada o fallida con reverso. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    requestLedgerReport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reporte listo. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    downloadLedgerReport: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description application/pdf */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+        };
+    };
+    platformSummary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Resumen. El ingreso es suscripción más comisión. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    listPlatformOrganizations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organizaciones. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    createPlatformOrganization: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Organización creada, sin identidad. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    enterSupportMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Acceso de soporte registrado. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    pauseCampaignPage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Campaña pausada. El libro no cambia. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    downloadPlatformIncome: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description text/csv */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    retryWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reintento idempotente. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    removePlatformUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cuenta bloqueada, o rechazo si tiene membresías. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    dispatchPublications: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Filas tomadas en esta pasada. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Publication"][];
+                };
+            };
         };
     };
 }

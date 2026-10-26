@@ -36,13 +36,19 @@ export function mapDbError(error: unknown): never {
   if (err.constraint === 'campaign_slug_key') {
     throw new DomainException('slug_taken', 422);
   }
-  if (err.constraint === 'campaign_dates' || err.constraint === 'ad_spend_period') {
+  if (
+    err.constraint === 'campaign_dates' ||
+    err.constraint === 'ad_spend_period'
+  ) {
     throw new DomainException('dates_invalid', 422);
   }
   if (err.constraint === 'campaign_electoral_needs_policy') {
     throw new DomainException('electoral_without_policy', 422);
   }
-  if (err.constraint === 'external_identity_provider_subject_key' || err.constraint === 'external_identity_user_id_provider_key') {
+  if (
+    err.constraint === 'external_identity_provider_subject_key' ||
+    err.constraint === 'external_identity_user_id_provider_key'
+  ) {
     throw new DomainException('subject_taken', 422);
   }
   if (err.code === '42501') {
@@ -56,6 +62,12 @@ export function mapDbError(error: unknown): never {
   }
   if (err.message?.includes('closed ad spend')) {
     throw new DomainException('spend_invalid', 422);
+  }
+  if (err.message?.includes('owner limit')) {
+    throw new DomainException('owner_limit', 422);
+  }
+  if (err.message?.includes('anonymized donor')) {
+    throw new DomainException('not_eligible', 422);
   }
   if (err.code === '23503' && err.constraint?.includes('network')) {
     throw new DomainException('network_unavailable', 422);

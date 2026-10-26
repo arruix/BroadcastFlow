@@ -304,6 +304,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Organization"
+  /organizations/{organizationId}/members:
+    get:
+      tags: [organizacion]
+      operationId: listMembers
+      summary: Miembros e invitaciones pendientes. Owner o admin.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Equipo de la organización.
+  /organizations/{organizationId}/invitations:
+    post:
+      tags: [organizacion]
+      operationId: inviteMember
+      summary: Owner o admin invita por correo, con un rol distinto de owner. El enlace dura 7 días.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Invitación enviada.
+  /organizations/{organizationId}/members/{membershipId}:
+    delete:
+      tags: [organizacion]
+      operationId: removeMember
+      summary: Owner o admin da de baja a un miembro que no es owner.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: organizationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: membershipId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "204":
+          description: Membresía retirada.
+  /invitations/accept:
+    post:
+      tags: [organizacion]
+      operationId: acceptInvitation
+      summary: El invitado, con el correo ya verificado, acepta y queda en la organización.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Membresía creada.
   /campaigns:
     get:
       tags: [campana]
@@ -542,6 +601,145 @@ paths:
           description: Firma o reloj inválidos. El libro no cambia.
         "422":
           description: El monto no cuadra con la donación. No queda asiento.
+  /plans:
+    get:
+      tags: [comercial]
+      operationId: listPlans
+      summary: Planes que se pueden contratar. El fundador no está a la venta.
+      responses:
+        "200":
+          description: Precio y minutos de live incluidos.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PlanOffer"
+  /subscription:
+    get:
+      tags: [comercial]
+      operationId: readSubscription
+      summary: Plan vigente de la organización.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Estado, minutos de live y la última factura.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionView"
+  /subscriptions/checkout:
+    post:
+      tags: [comercial]
+      operationId: startPlanCheckout
+      summary: CU-04. Abre la factura. El plan no cambia hasta el webhook de billing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan]
+              properties:
+                plan: { type: string }
+      responses:
+        "201":
+          description: Factura abierta y URL de pago.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [invoiceId, checkoutUrl]
+                properties:
+                  invoiceId: { type: string, format: uuid }
+                  checkoutUrl: { type: string }
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /subscriptions/checkout/result:
+    post:
+      tags: [comercial]
+      operationId: completePlanCheckout
+      summary: Resultado local del pago. En producción lo reemplaza el webhook.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoiceId, outcome]
+              properties:
+                invoiceId: { type: string, format: uuid }
+                outcome: { type: string, enum: [paid, failed] }
+      responses:
+        "200":
+          description: Suscripción después de aplicar el resultado.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionView"
+  /subscriptions/cancel:
+    post:
+      tags: [comercial]
+      operationId: cancelSubscription
+      summary: CU-04a. Corta al fin del periodo. Los datos no se borran.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Sigue usable hasta currentPeriodEnd.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionView"
+  /subscriptions/downgrade:
+    post:
+      tags: [comercial]
+      operationId: downgradeSubscription
+      summary: Si el uso no cabe en el fundador, el cambio espera al fin del periodo.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Plan actual o cambio pendiente.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionView"
+  /invoices/{invoiceId}/cfdi:
+    post:
+      tags: [comercial]
+      operationId: retryInvoiceCfdi
+      summary: CU-20. Reintenta el mismo id de factura. No timbra dos veces.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: invoiceId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Factura timbrada, o el fallo visible para el owner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionView"
   /webhooks/billing:
     post:
       tags: [donacion]
@@ -713,6 +911,23 @@ paths:
             text/event-stream:
               schema:
                 type: string
+  /campaigns/{campaignId}/live:
+    get:
+      tags: [envivo]
+      operationId: readLiveDesk
+      summary: Catálogo, minutos restantes y la última sesión. Las redes apagadas traen el motivo.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/CampaignId"
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Minutos del mes y redes del catálogo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveDesk"
   /campaigns/{campaignId}/live-sessions:
     post:
       tags: [envivo]
@@ -788,6 +1003,35 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LiveSession"
+  /live-sessions/{liveSessionId}/origin:
+    post:
+      tags: [envivo]
+      operationId: reportLiveOrigin
+      summary: El origen se cortó o volvió. A los 30 segundos sin origen la sala se detiene.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: liveSessionId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - $ref: "#/components/parameters/OrganizationHeader"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [connected]
+              properties:
+                connected: { type: boolean }
+      responses:
+        "200":
+          description: Estado después de anotar el origen.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LiveSession"
   /live-sessions/{liveSessionId}:
     get:
       tags: [envivo]
@@ -812,7 +1056,7 @@ paths:
     post:
       tags: [donacion]
       operationId: donorRights
-      summary: CU-22 Acceso, rectificación, cancelación u oposición.
+      summary: CU-22 Acceso, rectificación, cancelación u oposición. Cancelar u oponerse vacía nombre y correo a los cinco años. Antes, rights_retention_active.
       security:
         - bearerAuth: []
       parameters:
@@ -836,6 +1080,50 @@ paths:
                 $ref: "#/components/schemas/DonationRecord"
         "422":
           $ref: "#/components/responses/DomainError"
+  /connections/youtube/start:
+    post:
+      tags: [distribucion]
+      operationId: startYoutubeConnect
+      summary: Conecta el canal que va a recibir el live. El token queda cifrado.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: URL de autorización del canal.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authorizationUrl]
+                properties:
+                  authorizationUrl: { type: string }
+  /connections/youtube/callback:
+    post:
+      tags: [distribucion]
+      operationId: finishYoutubeConnect
+      summary: Guarda el canal. Sin el permiso de emisión queda en reautorización.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [state, channelId, scopes]
+              properties:
+                state: { type: string }
+                channelId: { type: string }
+                scopes:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          description: Conexión guardada. El token no viaja en la respuesta.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SocialConnection"
   /connections/facebook/start:
     post:
       tags: [distribucion]
@@ -1019,6 +1307,204 @@ paths:
                 $ref: "#/components/schemas/Publication"
         "422":
           $ref: "#/components/responses/DomainError"
+  /organizations/{organizationId}/identity:
+    post:
+      tags: [libro]
+      operationId: verifyIdentity
+      summary: CU-10. Sin identidad no hay retiro. Pide step-up.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+        - name: organizationId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "201":
+          description: Identidad verificada.
+        "403":
+          $ref: "#/components/responses/DomainError"
+  /organizations/{organizationId}/payout-account:
+    post:
+      tags: [libro]
+      operationId: savePayoutAccount
+      summary: CU-10. La cuenta destino queda verificada antes del retiro.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "201":
+          description: Cuenta verificada.
+  /organizations/{organizationId}/owners:
+    post:
+      tags: [libro]
+      operationId: addSecondOwner
+      summary: CU-10. El owner suma un segundo owner, hasta dos, para aprobar.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "201":
+          description: Segundo owner agregado.
+  /campaigns/{campaignId}/ledger:
+    get:
+      tags: [libro]
+      operationId: readLedger
+      summary: CU-10. Saldo líquido, asientos y dispersiones.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Libro de la campaña.
+  /campaigns/{campaignId}/disputes:
+    get:
+      tags: [libro]
+      operationId: listDisputes
+      summary: CU-10. Disputas abiertas, con fecha y vencimiento.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: Disputas abiertas.
+  /campaigns/{campaignId}/payouts:
+    post:
+      tags: [libro]
+      operationId: requestPayout
+      summary: CU-10. Por encima de 100000 centavos USD, u otra moneda, queda pedida.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "201":
+          description: Dispersión pedida o enviada.
+  /payouts/{payoutId}/approve:
+    post:
+      tags: [libro]
+      operationId: approvePayout
+      summary: CU-10. Otro owner aprueba. Quien la pidió no la aprueba.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "201":
+          description: Dispersión enviada o fallida con reverso.
+  /campaigns/{campaignId}/ledger/report:
+    post:
+      tags: [libro]
+      operationId: requestLedgerReport
+      summary: CU-10. La web o la tablet piden el PDF del libro.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "201":
+          description: Reporte listo.
+  /reports/{reportId}:
+    get:
+      tags: [libro]
+      operationId: downloadLedgerReport
+      summary: CU-10. PDF del libro.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/OrganizationHeader"
+      responses:
+        "200":
+          description: application/pdf
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+  /platform/summary:
+    get:
+      tags: [plataforma]
+      operationId: platformSummary
+      summary: Consola del operador. Organizaciones con identidad, campañas, ingreso del mes y pagos atorados.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Resumen. El ingreso es suscripción más comisión.
+  /platform/organizations:
+    get:
+      tags: [plataforma]
+      operationId: listPlatformOrganizations
+      summary: Alta, país, verificación y plan. Sin identidad no se dispersa.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Organizaciones.
+    post:
+      tags: [plataforma]
+      operationId: createPlatformOrganization
+      summary: El operador da de alta la organización para un owner. El operador no queda como miembro.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Organización creada, sin identidad.
+  /platform/organizations/{organizationId}/support:
+    post:
+      tags: [plataforma]
+      operationId: enterSupportMode
+      summary: Modo soporte. El owner ve el acceso y la auditoría guarda quién entró.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Acceso de soporte registrado.
+  /platform/campaigns/{campaignId}/pause:
+    post:
+      tags: [plataforma]
+      operationId: pauseCampaignPage
+      summary: Con libro no se borra. Se pausa la página.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Campaña pausada. El libro no cambia.
+  /platform/income.csv:
+    get:
+      tags: [plataforma]
+      operationId: downloadPlatformIncome
+      summary: CSV de suscripciones y comisiones. Sin neto de campañas.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: text/csv
+  /platform/webhooks/{webhookId}/retry:
+    post:
+      tags: [plataforma]
+      operationId: retryWebhook
+      summary: Reintenta un webhook guardado. No reescribe cifras del libro.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Reintento idempotente.
+  /platform/users/{userId}/remove:
+    post:
+      tags: [plataforma]
+      operationId: removePlatformUser
+      summary: Con membresías no se elimina.
+      security:
+        - bearerAuth: []
+      responses:
+        "201":
+          description: Cuenta bloqueada, o rechazo si tiene membresías.
+        "422":
+          $ref: "#/components/responses/DomainError"
   /publications/dispatch:
     post:
       tags: [distribucion]
@@ -1090,6 +1576,7 @@ components:
             - commercial_has_no_donation_page
             - live_minutes_exhausted
             - live_network_unavailable
+            - live_unavailable
             - rights_retention_active
             - unbalanced
             - oauth_not_linked
@@ -1117,6 +1604,17 @@ components:
             - image_invalid
             - beacon_invalid
             - spend_invalid
+            - subscription_inactive
+            - plan_unavailable
+            - step_up_required
+            - identity_unverified
+            - payout_unavailable
+            - approval_invalid
+            - owner_limit
+            - platform_web_only
+            - membership_exists
+            - account_blocked
+            - operator_required
         ticket:
           type: string
           description: Presente cuando el ingreso pide enrolar el segundo factor.
@@ -1190,6 +1688,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
+        role: { type: string }
     CampaignWrite:
       type: object
       required: [name, currency, kind, jurisdiction, timeZone]
@@ -1261,6 +1760,13 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/PrivacyNotice"
+        live:
+          nullable: true
+          description: Presente mientras hay una sesión en vivo. El landing cambia el video por este HLS.
+          type: object
+          required: [playbackUrl]
+          properties:
+            playbackUrl: { type: string }
     DonationStart:
       type: object
       required: [amountMinor, currency, donorName, donorEmail]
@@ -1349,6 +1855,35 @@ components:
         scheduledAt: { type: string, format: date-time }
         variantId: { type: string, format: uuid }
         connectionId: { type: string, format: uuid }
+    PlanOffer:
+      type: object
+      required: [code, priceMinor, currency, liveMinutesIncluded]
+      properties:
+        code: { type: string }
+        priceMinor: { type: integer, format: int64 }
+        currency: { type: string }
+        liveMinutesIncluded: { type: integer }
+        campaignLimit: { type: integer, nullable: true }
+        connectionLimit: { type: integer, nullable: true }
+        platformFeeBps: { type: integer, description: Comisión de la plataforma sobre el bruto, en diezmilésimas. }
+    SubscriptionView:
+      type: object
+      required: [plan, status, liveMinutesIncluded, cancelAtPeriodEnd]
+      properties:
+        plan: { type: string }
+        status: { type: string, enum: [internal, incomplete, active, past_due, canceled] }
+        liveMinutesIncluded: { type: integer }
+        currentPeriodEnd: { type: string, format: date-time, nullable: true }
+        cancelAtPeriodEnd: { type: boolean }
+        pendingPlan: { type: string, nullable: true }
+        invoice:
+          type: object
+          nullable: true
+          properties:
+            id: { type: string, format: uuid }
+            status: { type: string }
+            cfdiStatus: { type: string, enum: [not_required, pending, stamped, failed] }
+            cfdiUuid: { type: string, format: uuid, nullable: true }
     VisitBeacon:
       type: object
       required: [anonymousId, eventType]
@@ -1400,6 +1935,30 @@ components:
                 type: integer
                 nullable: true
                 description: Gasto de esa red / clics en Donar. Vacío si no hay fila de gasto. Solo owner y admin. El directo no tiene CPC.
+    LiveDesk:
+      type: object
+      required: [minutesIncluded, secondsUsed, secondsRemaining, networks, connections]
+      properties:
+        minutesIncluded: { type: integer }
+        secondsUsed: { type: integer }
+        secondsRemaining: { type: integer }
+        networks:
+          type: array
+          items:
+            type: object
+            required: [code, liveMode]
+            properties:
+              code: { type: string }
+              liveMode: { type: string, enum: [on, off, unavailable, out] }
+              reason: { type: string, nullable: true }
+        connections:
+          type: array
+          items:
+            $ref: "#/components/schemas/SocialConnection"
+        session:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/LiveSession"
     LiveSession:
       type: object
       required: [id, status, destinations]

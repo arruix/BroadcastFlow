@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthGuard, type AuthedRequest } from '../identidad/auth.guard';
 import { DomainException } from '../shared/domain';
 import { AvisosService, type NoticeInput } from './avisos.service';
@@ -14,7 +24,11 @@ export class AvisosController {
     @Headers('x-organization-id') organizationId: string | undefined,
     @Param('campaignId') campaignId: string,
   ) {
-    return this.avisos.list(request.userId, requiredOrg(organizationId), campaignId);
+    return this.avisos.list(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+    );
   }
 
   @Post(':campaignId/privacy-notices')
@@ -24,7 +38,12 @@ export class AvisosController {
     @Param('campaignId') campaignId: string,
     @Body() body: NoticeInput,
   ) {
-    return this.avisos.save(request.userId, requiredOrg(organizationId), campaignId, body);
+    return this.avisos.save(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      body,
+    );
   }
 
   @Post(':campaignId/privacy-notices/:noticeId/publish')
@@ -35,7 +54,12 @@ export class AvisosController {
     @Param('campaignId') campaignId: string,
     @Param('noticeId') noticeId: string,
   ) {
-    return this.avisos.publish(request.userId, requiredOrg(organizationId), campaignId, noticeId);
+    return this.avisos.publish(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      noticeId,
+    );
   }
 }
 

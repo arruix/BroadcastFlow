@@ -17,7 +17,9 @@ describe('historias 5 y 6', () => {
   const password = 'clave-segura-12';
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleFixture.createNestApplication({ rawBody: true });
     app.setGlobalPrefix('v1');
     await app.init();
@@ -37,9 +39,17 @@ describe('historias 5 y 6', () => {
       .set('authorization', `Bearer ${session}`)
       .send({ name: 'Causa del aviso', country: 'MX' })
       .expect(201);
-    const campaign = await createCampaign(app, session, org.body.id, `Rio aviso ${Date.now()}`, 'causa');
+    const campaign = await createCampaign(
+      app,
+      session,
+      org.body.id,
+      `Rio aviso ${Date.now()}`,
+      'causa',
+    );
 
-    const hidden = await request(app.getHttpServer()).get(`/v1/public/campaigns/${campaign.slug}`).expect(200);
+    const hidden = await request(app.getHttpServer())
+      .get(`/v1/public/campaigns/${campaign.slug}`)
+      .expect(200);
     expect(hidden.body.notice).toBeNull();
     expect(hidden.body.donateEnabled).toBe(false);
     await request(app.getHttpServer())
@@ -61,7 +71,9 @@ describe('historias 5 y 6', () => {
       .expect(201);
     expect(sample.body.publishedAt).toBeNull();
     await request(app.getHttpServer())
-      .post(`/v1/campaigns/${campaign.id}/privacy-notices/${sample.body.id}/publish`)
+      .post(
+        `/v1/campaigns/${campaign.id}/privacy-notices/${sample.body.id}/publish`,
+      )
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
       .expect(422);
@@ -78,13 +90,17 @@ describe('historias 5 y 6', () => {
       })
       .expect(201);
     const published = await request(app.getHttpServer())
-      .post(`/v1/campaigns/${campaign.id}/privacy-notices/${draft.body.id}/publish`)
+      .post(
+        `/v1/campaigns/${campaign.id}/privacy-notices/${draft.body.id}/publish`,
+      )
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
       .expect(200);
     expect(published.body.publishedAt).toBeTruthy();
 
-    const drafted = await request(app.getHttpServer()).get(`/v1/public/campaigns/${campaign.slug}`).expect(200);
+    const drafted = await request(app.getHttpServer())
+      .get(`/v1/public/campaigns/${campaign.slug}`)
+      .expect(200);
     expect(drafted.body.notice.controller).toBe('Causa del aviso');
     expect(drafted.body.donateEnabled).toBe(false);
     const rejected = await request(app.getHttpServer())
@@ -101,7 +117,9 @@ describe('historias 5 y 6', () => {
       .set('x-organization-id', org.body.id)
       .expect(200);
     expect(active.body.status).toBe('activa');
-    const open = await request(app.getHttpServer()).get(`/v1/public/campaigns/${campaign.slug}`).expect(200);
+    const open = await request(app.getHttpServer())
+      .get(`/v1/public/campaigns/${campaign.slug}`)
+      .expect(200);
     expect(open.body.donateEnabled).toBe(true);
 
     await db.asWorker((client) =>
@@ -132,7 +150,13 @@ describe('historias 5 y 6', () => {
     expect(otherCurrency.body.code).toBe('not_eligible');
     expect(await donationCount(db, campaign.id)).toBe(1);
 
-    const bad = JSON.stringify({ id: 'evt-mal', donationId: pending.body.donationId, ...split, grossMinor: 1, currency: 'USD' });
+    const bad = JSON.stringify({
+      id: `evt-mal-${Date.now()}`,
+      donationId: pending.body.donationId,
+      ...split,
+      grossMinor: 1,
+      currency: 'USD',
+    });
     await request(app.getHttpServer())
       .post('/v1/webhooks/donations')
       .set('stripe-signature', 't=1,v1=0000')
@@ -148,7 +172,7 @@ describe('historias 5 y 6', () => {
     expect(await ledgerCount(db, pending.body.donationId)).toBe(0);
 
     const good = JSON.stringify({
-      id: 'evt-bien',
+      id: `evt-bien-${Date.now()}`,
       donationId: pending.body.donationId,
       grossMinor: 10000,
       netMinor: split.netMinor,
@@ -170,12 +194,20 @@ describe('historias 5 y 6', () => {
       .expect(200);
     expect(await ledgerCount(db, pending.body.donationId)).toBe(3);
 
-    const receipt = await request(app.getHttpServer()).get(`/v1/public/donations/${pending.body.donationId}`).expect(200);
+    const receipt = await request(app.getHttpServer())
+      .get(`/v1/public/donations/${pending.body.donationId}`)
+      .expect(200);
     expect(receipt.body.status).toBe('liquidada');
     expect(receipt.body.fiscalReceipt).toBe(false);
     expect(receipt.body.grossMinor).toBe(10000);
-    expect(receipt.body.grossMinor).toBe(receipt.body.netMinor + receipt.body.processorFeeMinor + receipt.body.platformFeeMinor);
-    expect(mail.latest('donante@example.test', 'receipt')?.token).toBe(pending.body.donationId);
+    expect(receipt.body.grossMinor).toBe(
+      receipt.body.netMinor +
+        receipt.body.processorFeeMinor +
+        receipt.body.platformFeeMinor,
+    );
+    expect(mail.latest('donante@example.test', 'receipt')?.token).toBe(
+      pending.body.donationId,
+    );
   });
 
   it('la comercial no abre página y la electoral no sale de borrador', async () => {
@@ -186,7 +218,13 @@ describe('historias 5 y 6', () => {
       .set('authorization', `Bearer ${session}`)
       .send({ name: 'Tienda', country: 'MX' })
       .expect(201);
-    const shop = await createCampaign(app, session, org.body.id, `Tienda ${Date.now()}`, 'comercial');
+    const shop = await createCampaign(
+      app,
+      session,
+      org.body.id,
+      `Tienda ${Date.now()}`,
+      'comercial',
+    );
     const notice = await request(app.getHttpServer())
       .post(`/v1/campaigns/${shop.id}/privacy-notices`)
       .set('authorization', `Bearer ${session}`)
@@ -199,7 +237,9 @@ describe('historias 5 y 6', () => {
       })
       .expect(201);
     await request(app.getHttpServer())
-      .post(`/v1/campaigns/${shop.id}/privacy-notices/${notice.body.id}/publish`)
+      .post(
+        `/v1/campaigns/${shop.id}/privacy-notices/${notice.body.id}/publish`,
+      )
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
       .expect(200);
@@ -216,7 +256,13 @@ describe('historias 5 y 6', () => {
     expect(blocked.body.code).toBe('commercial_has_no_donation_page');
     expect(await donationCount(db, shop.id)).toBe(0);
 
-    const electoral = await createCampaign(app, session, org.body.id, `Voto ${Date.now()}`, 'electoral');
+    const electoral = await createCampaign(
+      app,
+      session,
+      org.body.id,
+      `Voto ${Date.now()}`,
+      'electoral',
+    );
     await request(app.getHttpServer())
       .post(`/v1/campaigns/${electoral.id}/activate`)
       .set('authorization', `Bearer ${session}`)
@@ -235,14 +281,34 @@ function donationBody() {
   };
 }
 
-async function account(app: INestApplication<App>, mail: MailService, email: string, password: string) {
-  await request(app.getHttpServer()).post('/v1/auth/register').send({ email, password }).expect(201);
-  await request(app.getHttpServer()).post('/v1/auth/verify').send({ token: mail.latest(email, 'verify')?.token }).expect(204);
-  const login = await request(app.getHttpServer()).post('/v1/auth/login').send({ email, password }).expect(200);
+async function account(
+  app: INestApplication<App>,
+  mail: MailService,
+  email: string,
+  password: string,
+) {
+  await request(app.getHttpServer())
+    .post('/v1/auth/register')
+    .send({ email, password })
+    .expect(201);
+  await request(app.getHttpServer())
+    .post('/v1/auth/verify')
+    .send({ token: mail.latest(email, 'verify')?.token })
+    .expect(204);
+  const login = await request(app.getHttpServer())
+    .post('/v1/auth/login')
+    .send({ email, password })
+    .expect(200);
   return login.body.accessToken as string;
 }
 
-async function createCampaign(app: INestApplication<App>, token: string, organizationId: string, name: string, kind: string) {
+async function createCampaign(
+  app: INestApplication<App>,
+  token: string,
+  organizationId: string,
+  name: string,
+  kind: string,
+) {
   const response = await request(app.getHttpServer())
     .post('/v1/campaigns')
     .set('authorization', `Bearer ${token}`)
@@ -260,14 +326,20 @@ async function createCampaign(app: INestApplication<App>, token: string, organiz
 
 async function donationCount(db: DbService, campaignId: string) {
   const rows = await db.asWorker((client) =>
-    client.query<{ count: string }>('SELECT count(*) FROM donation WHERE campaign_id = $1', [campaignId]),
+    client.query<{ count: string }>(
+      'SELECT count(*) FROM donation WHERE campaign_id = $1',
+      [campaignId],
+    ),
   );
   return Number(rows.rows[0].count);
 }
 
 async function ledgerCount(db: DbService, donationId: string) {
   const rows = await db.asWorker((client) =>
-    client.query<{ count: string }>('SELECT count(*) FROM campaign_ledger_entry WHERE donation_id = $1', [donationId]),
+    client.query<{ count: string }>(
+      'SELECT count(*) FROM campaign_ledger_entry WHERE donation_id = $1',
+      [donationId],
+    ),
   );
   return Number(rows.rows[0].count);
 }

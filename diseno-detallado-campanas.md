@@ -29,7 +29,7 @@ La consola conecta como `app_api`, sujeta a RLS, con `app.user_id` puesto en la 
 | CU-19 | `live_session`, `live_destination`, `live_usage` | `POST /campaigns/{id}/live-sessions`, `/start`, `/stop` |
 | CU-22 | `donation.donor_name`, `donor_email`, `anonymized_at` | `POST /donations/{id}/rights` |
 
-Un cupo NULL en el plan `campana` quiere decir que el análisis no fijó ese tope. El plan `fundador` trae los topes escritos: 1 campaña, 2 conexiones, 0 minutos de live. El plan `campana` incluye 60 minutos de live al mes. El live se construye después de esa historia. Una dispersión por encima de 100000 unidades menores de USD, o en otra moneda, pide un segundo owner.
+Un cupo NULL en el plan `campana` quiere decir que el análisis no fijó ese tope. El plan `fundador` trae los topes escritos: 1 campaña, 2 conexiones, 0 minutos de live. El plan `campana` incluye 60 minutos de live al mes. El live se construye después de esa historia. Una dispersión por encima de 100000 unidades menores de USD, o en otra moneda, pide un segundo owner. Nombre y correo del donante se vacían cuando la donación cumple cinco años; antes, cancelación y oposición responden `rights_retention_active`.
 
 ## 2. Secuencia del webhook que asienta
 
@@ -141,7 +141,7 @@ Cerrar la campaña (CU-11) llama a este stop si la sesión sigue en vivo.
 | El slug queda fijo al publicar el aviso | Trigger `campaign_slug_lock` |
 | Una vista y un clic se distinguen | `visit_event.event_type` |
 | El subject del proveedor no se repite | `UNIQUE (provider, subject)` de `external_identity` |
-| Un owner por organización | Índice único parcial de `membership` |
+| Hasta dos owners. El segundo aprueba una dispersión alta | Tope en `membership` |
 | Un event_id por proveedor | `UNIQUE (provider, event_id)` |
 | Un CFDI por factura | Índice único de `invoice.cfdi_uuid` |
 | Periodo de gasto cerrado no se edita | `ad_spend_update_guard` |

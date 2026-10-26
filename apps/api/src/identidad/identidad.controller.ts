@@ -1,4 +1,15 @@
-import { Body, Controller, Get, Headers, HttpCode, Param, Post, Req, Res, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Headers,
+  HttpCode,
+  Param,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { MailService } from '../mail/mail.service';
 import { DomainException } from '../shared/domain';
@@ -34,18 +45,35 @@ export class IdentidadController {
   @Post('login')
   @HttpCode(200)
   async login(
-    @Body() body: { email?: string; password?: string; totp?: string; recoveryCode?: string },
+    @Body()
+    body: {
+      email?: string;
+      password?: string;
+      totp?: string;
+      recoveryCode?: string;
+    },
     @Headers('x-surface') surface: string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.identidad.login(body.email ?? '', body.password ?? '', surfaceOf(surface), body.totp, body.recoveryCode);
-    if ('code' in result) throw new DomainException(result.code, 401, result.ticket);
+    const result = await this.identidad.login(
+      body.email ?? '',
+      body.password ?? '',
+      surfaceOf(surface),
+      body.totp,
+      body.recoveryCode,
+    );
+    if ('code' in result)
+      throw new DomainException(result.code, 401, result.ticket);
     return present(result, surface, response);
   }
 
   @Post('refresh')
   @HttpCode(200)
-  async refresh(@Req() request: Request, @Headers('x-surface') surface: string | undefined, @Res({ passthrough: true }) response: Response) {
+  async refresh(
+    @Req() request: Request,
+    @Headers('x-surface') surface: string | undefined,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const raw = readCookie(request.headers.cookie, refreshCookie);
     const session = await this.identidad.refresh(raw ?? '', surfaceOf(surface));
     return present(session, surface, response);
@@ -53,8 +81,13 @@ export class IdentidadController {
 
   @Post('logout')
   @HttpCode(204)
-  async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
-    await this.identidad.logout(readCookie(request.headers.cookie, refreshCookie) ?? '');
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    await this.identidad.logout(
+      readCookie(request.headers.cookie, refreshCookie) ?? '',
+    );
     response.clearCookie(refreshCookie, { path: '/v1/auth' });
   }
 
@@ -83,16 +116,30 @@ export class IdentidadController {
     @Headers('x-surface') surface: string | undefined,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const session = await this.identidad.confirm(body.ticket ?? '', body.code ?? '', surfaceOf(surface));
+    const session = await this.identidad.confirm(
+      body.ticket ?? '',
+      body.code ?? '',
+      surfaceOf(surface),
+    );
     const presented = present(session, surface, response);
     return { ...presented, recoveryCodes: session.recoveryCodes };
+  }
+
+  @Get('me')
+  @UseGuards(AuthGuard)
+  me(@Req() request: AuthedRequest) {
+    return this.identidad.me(request.userId);
   }
 
   @Post('step-up')
   @HttpCode(204)
   @UseGuards(AuthGuard)
   stepUp(@Req() request: AuthedRequest, @Body() body: { code?: string }) {
-    return this.identidad.stepUp(request.userId, request.sessionId, body.code ?? '');
+    return this.identidad.stepUp(
+      request.userId,
+      request.sessionId,
+      body.code ?? '',
+    );
   }
 
   @Post('oauth/:provider/start')
@@ -113,12 +160,17 @@ export class IdentidadController {
 
   @Get('dev/mailbox')
   mailbox() {
-    if (process.env.NODE_ENV === 'production') throw new DomainException('forbidden', 403);
+    if (process.env.NODE_ENV === 'production')
+      throw new DomainException('forbidden', 403);
     return this.mail.sent;
   }
 }
 
-function present(session: IssuedSession, surface: string | undefined, response: Response) {
+function present(
+  session: IssuedSession,
+  surface: string | undefined,
+  response: Response,
+) {
   response.cookie(refreshCookie, session.refreshToken, {
     httpOnly: true,
     secure: true,
@@ -129,7 +181,9 @@ function present(session: IssuedSession, surface: string | undefined, response: 
   return {
     accessToken: session.accessToken,
     expiresIn: session.expiresIn,
-    ...(surfaceOf(surface) === 'tablet' ? { refreshToken: session.refreshToken } : {}),
+    ...(surfaceOf(surface) === 'tablet'
+      ? { refreshToken: session.refreshToken }
+      : {}),
   };
 }
 
@@ -142,7 +196,10 @@ function providerOf(value: string): 'google' | 'microsoft' {
   throw new DomainException('oauth_not_configured', 422);
 }
 
-function readCookie(header: string | undefined, name: string): string | undefined {
+function readCookie(
+  header: string | undefined,
+  name: string,
+): string | undefined {
   const parts = header?.split(';') ?? [];
   for (const part of parts) {
     const [key, ...rest] = part.trim().split('=');

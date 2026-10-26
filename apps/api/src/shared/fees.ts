@@ -10,8 +10,12 @@ export type DonationSplit = {
   netMinor: number;
 };
 
-export function splitDonation(grossMinor: number, platformFeeBps: number): DonationSplit {
-  const processorFeeMinor = Math.round((grossMinor * processorBps) / 10000) + processorFixedMinor;
+export function splitDonation(
+  grossMinor: number,
+  platformFeeBps: number,
+): DonationSplit {
+  const processorFeeMinor =
+    Math.round((grossMinor * processorBps) / 10000) + processorFixedMinor;
   const platformFeeMinor = Math.floor((grossMinor * platformFeeBps) / 10000);
   const netMinor = grossMinor - processorFeeMinor - platformFeeMinor;
   if (processorFeeMinor <= 0 || platformFeeMinor < 0 || netMinor < 0) {

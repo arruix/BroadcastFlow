@@ -18,7 +18,9 @@ describe('historias 7 a 9', () => {
   const password = 'clave-segura-12';
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleFixture.createNestApplication({ rawBody: true });
     app.setGlobalPrefix('v1');
     await app.init();
@@ -39,19 +41,47 @@ describe('historias 7 a 9', () => {
       .set('authorization', `Bearer ${session}`)
       .send({ name: 'Causa de la página', country: 'MX' })
       .expect(201);
-    const campaign = await createCampaign(app, session, org.body.id, `Rio pagina ${Date.now()}`);
-    const page = await connect(app, session, org.body.id, 'pagina-rio', ['pages_show_list', 'pages_manage_posts']);
+    const campaign = await createCampaign(
+      app,
+      session,
+      org.body.id,
+      `Rio pagina ${Date.now()}`,
+    );
+    const page = await connect(app, session, org.body.id, 'pagina-rio', [
+      'pages_show_list',
+      'pages_manage_posts',
+    ]);
     expect(page.status).toBe('active');
     expect(JSON.stringify(page)).not.toContain(facebook.lastToken);
     const stored = await db.asWorker((client) =>
-      client.query<{ token_ciphertext: Buffer }>('SELECT token_ciphertext FROM social_connection WHERE id = $1', [page.id]),
+      client.query<{ token_ciphertext: Buffer }>(
+        'SELECT token_ciphertext FROM social_connection WHERE id = $1',
+        [page.id],
+      ),
     );
-    expect(decrypt(stored.rows[0].token_ciphertext).toString('utf8')).toBe(facebook.lastToken);
-    expect(stored.rows[0].token_ciphertext.toString('utf8')).not.toContain(facebook.lastToken);
+    expect(decrypt(stored.rows[0].token_ciphertext).toString('utf8')).toBe(
+      facebook.lastToken,
+    );
+    expect(stored.rows[0].token_ciphertext.toString('utf8')).not.toContain(
+      facebook.lastToken,
+    );
 
-    const reauth = await connect(app, session, org.body.id, 'pagina-sin-permiso', ['pages_show_list']);
+    const reauth = await connect(
+      app,
+      session,
+      org.body.id,
+      'pagina-sin-permiso',
+      ['pages_show_list'],
+    );
     expect(reauth.status).toBe('reauth');
-    const limited = await connect(app, session, org.body.id, 'pagina-tres', ['pages_manage_posts'], 422);
+    const limited = await connect(
+      app,
+      session,
+      org.body.id,
+      'pagina-tres',
+      ['pages_manage_posts'],
+      422,
+    );
     expect(limited.code).toBe('connection_limit');
 
     const share = await request(app.getHttpServer())
@@ -65,7 +95,11 @@ describe('historias 7 a 9', () => {
       .put(`/v1/campaigns/${campaign.id}/share`)
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
-      .send({ title: 'Río en la red', description: 'El enlace de la causa', imageKey: 'http://imagen.example/foto.jpg' })
+      .send({
+        title: 'Río en la red',
+        description: 'El enlace de la causa',
+        imageKey: 'http://imagen.example/foto.jpg',
+      })
       .expect(422);
     expect(badImage.body.code).toBe('image_invalid');
 
@@ -85,7 +119,11 @@ describe('historias 7 a 9', () => {
       .post('/v1/publications')
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
-      .send({ variantId: invalid.body.id, connectionId: page.id, scheduledAt: future() })
+      .send({
+        variantId: invalid.body.id,
+        connectionId: page.id,
+        scheduledAt: future(),
+      })
       .expect(422);
     expect(blocked.body.code).toBe('variant_invalid');
     expect(await publicationCount(db, invalid.body.id)).toBe(0);
@@ -101,7 +139,11 @@ describe('historias 7 a 9', () => {
       .post('/v1/publications')
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
-      .send({ variantId: variant.body.id, connectionId: reauth.id, scheduledAt: future() })
+      .send({
+        variantId: variant.body.id,
+        connectionId: reauth.id,
+        scheduledAt: future(),
+      })
       .expect(422);
     expect(denied.body.code).toBe('connection_reauth');
 
@@ -109,7 +151,11 @@ describe('historias 7 a 9', () => {
       .post('/v1/publications')
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
-      .send({ variantId: variant.body.id, connectionId: page.id, scheduledAt: future() })
+      .send({
+        variantId: variant.body.id,
+        connectionId: page.id,
+        scheduledAt: future(),
+      })
       .expect(201);
     await due(db, scheduled.body.id);
     facebook.outcome = 'ok';
@@ -121,7 +167,11 @@ describe('historias 7 a 9', () => {
       .expect(200);
     expect(published.body[0].status).toBe('published');
     expect(facebook.publishes).toEqual([
-      expect.objectContaining({ publicationId: scheduled.body.id, imageKey: null, body: 'El río sigue abierto.' }),
+      expect.objectContaining({
+        publicationId: scheduled.body.id,
+        imageKey: null,
+        body: 'El río sigue abierto.',
+      }),
     ]);
     const again = await request(app.getHttpServer())
       .post('/v1/publications/dispatch')
@@ -131,8 +181,14 @@ describe('historias 7 a 9', () => {
     expect(again.body).toEqual([]);
     expect(facebook.publishes).toHaveLength(1);
 
-    const publicPage = await request(app.getHttpServer()).get(`/v1/public/campaigns/${campaign.slug}`).expect(200);
-    expect(publicPage.body.share).toEqual({ title: 'Río en la red', description: 'El enlace de la causa', imageKey: null });
+    const publicPage = await request(app.getHttpServer())
+      .get(`/v1/public/campaigns/${campaign.slug}`)
+      .expect(200);
+    expect(publicPage.body.share).toEqual({
+      title: 'Río en la red',
+      description: 'El enlace de la causa',
+      imageKey: null,
+    });
     expect(await itemCount(db, item.body.id)).toBe(1);
   });
 
@@ -144,8 +200,15 @@ describe('historias 7 a 9', () => {
       .set('authorization', `Bearer ${session}`)
       .send({ name: 'Causa del reintento', country: 'MX' })
       .expect(201);
-    const campaign = await createCampaign(app, session, org.body.id, `Rio reintento ${Date.now()}`);
-    const page = await connect(app, session, org.body.id, 'pagina-reintento', ['pages_manage_posts']);
+    const campaign = await createCampaign(
+      app,
+      session,
+      org.body.id,
+      `Rio reintento ${Date.now()}`,
+    );
+    const page = await connect(app, session, org.body.id, 'pagina-reintento', [
+      'pages_manage_posts',
+    ]);
     const item = await request(app.getHttpServer())
       .post(`/v1/campaigns/${campaign.id}/content-items`)
       .set('authorization', `Bearer ${session}`)
@@ -161,7 +224,11 @@ describe('historias 7 a 9', () => {
       .post('/v1/publications')
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
-      .send({ variantId: variant.body.id, connectionId: page.id, scheduledAt: future() })
+      .send({
+        variantId: variant.body.id,
+        connectionId: page.id,
+        scheduledAt: future(),
+      })
       .expect(201);
     await due(db, scheduled.body.id);
     facebook.outcome = 'retry';
@@ -181,7 +248,11 @@ describe('historias 7 a 9', () => {
       .post('/v1/publications')
       .set('authorization', `Bearer ${session}`)
       .set('x-organization-id', org.body.id)
-      .send({ variantId: variant.body.id, connectionId: page.id, scheduledAt: future() })
+      .send({
+        variantId: variant.body.id,
+        connectionId: page.id,
+        scheduledAt: future(),
+      })
       .expect(201);
     await due(db, terminal.body.id);
     facebook.outcome = 'terminal';
@@ -199,14 +270,33 @@ function future() {
   return new Date(Date.now() + 60 * 60 * 1000).toISOString();
 }
 
-async function account(app: INestApplication<App>, mail: MailService, email: string, password: string) {
-  await request(app.getHttpServer()).post('/v1/auth/register').send({ email, password }).expect(201);
-  await request(app.getHttpServer()).post('/v1/auth/verify').send({ token: mail.latest(email, 'verify')?.token }).expect(204);
-  const login = await request(app.getHttpServer()).post('/v1/auth/login').send({ email, password }).expect(200);
+async function account(
+  app: INestApplication<App>,
+  mail: MailService,
+  email: string,
+  password: string,
+) {
+  await request(app.getHttpServer())
+    .post('/v1/auth/register')
+    .send({ email, password })
+    .expect(201);
+  await request(app.getHttpServer())
+    .post('/v1/auth/verify')
+    .send({ token: mail.latest(email, 'verify')?.token })
+    .expect(204);
+  const login = await request(app.getHttpServer())
+    .post('/v1/auth/login')
+    .send({ email, password })
+    .expect(200);
   return login.body.accessToken as string;
 }
 
-async function createCampaign(app: INestApplication<App>, token: string, organizationId: string, name: string) {
+async function createCampaign(
+  app: INestApplication<App>,
+  token: string,
+  organizationId: string,
+  name: string,
+) {
   const response = await request(app.getHttpServer())
     .post('/v1/campaigns')
     .set('authorization', `Bearer ${token}`)
@@ -235,27 +325,41 @@ async function connect(
     .set('authorization', `Bearer ${token}`)
     .set('x-organization-id', organizationId)
     .expect(200);
-  const state = new URL(started.body.authorizationUrl).searchParams.get('state');
-  const finished = await request(app.getHttpServer()).post('/v1/connections/facebook/callback').send({ state, pageId, scopes }).expect(status);
+  const state = new URL(started.body.authorizationUrl).searchParams.get(
+    'state',
+  );
+  const finished = await request(app.getHttpServer())
+    .post('/v1/connections/facebook/callback')
+    .send({ state, pageId, scopes })
+    .expect(status);
   return finished.body as { id: string; status: string; code?: string };
 }
 
 async function due(db: DbService, publicationId: string) {
   await db.asWorker((client) =>
-    client.query(`UPDATE publication SET scheduled_at = now() - interval '1 minute' WHERE id = $1`, [publicationId]),
+    client.query(
+      `UPDATE publication SET scheduled_at = now() - interval '1 minute' WHERE id = $1`,
+      [publicationId],
+    ),
   );
 }
 
 async function publicationCount(db: DbService, variantId: string) {
   const rows = await db.asWorker((client) =>
-    client.query<{ count: string }>('SELECT count(*) FROM publication WHERE content_variant_id = $1', [variantId]),
+    client.query<{ count: string }>(
+      'SELECT count(*) FROM publication WHERE content_variant_id = $1',
+      [variantId],
+    ),
   );
   return Number(rows.rows[0].count);
 }
 
 async function itemCount(db: DbService, itemId: string) {
   const rows = await db.asWorker((client) =>
-    client.query<{ count: string }>('SELECT count(*) FROM content_item WHERE id = $1', [itemId]),
+    client.query<{ count: string }>(
+      'SELECT count(*) FROM content_item WHERE id = $1',
+      [itemId],
+    ),
   );
   return Number(rows.rows[0].count);
 }

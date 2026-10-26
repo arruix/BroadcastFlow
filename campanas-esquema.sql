@@ -80,6 +80,8 @@ CREATE TABLE app_user (
   email_verified_at timestamptz,
   failed_attempts integer NOT NULL DEFAULT 0 CHECK (failed_attempts >= 0),
   locked_until timestamptz,
+  blocked_at timestamptz,
+  platform_operator boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -111,6 +113,8 @@ CREATE TABLE organization (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   name text NOT NULL,
   country char(2) NOT NULL,
+  legal_name text,
+  identity_verified_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -123,7 +127,21 @@ CREATE TABLE membership (
   UNIQUE (organization_id, user_id)
 );
 
-CREATE UNIQUE INDEX membership_one_owner ON membership (organization_id) WHERE role = 'owner';
+-- El owner que crea la organización puede sumar un segundo owner para aprobar dispersiones.
+CREATE OR REPLACE FUNCTION membership_owner_limit() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW.role = 'owner' AND (
+    SELECT count(*) FROM membership
+    WHERE organization_id = NEW.organization_id AND role = 'owner' AND id IS DISTINCT FROM NEW.id
+  ) >= 2 THEN
+    RAISE EXCEPTION 'owner limit';
+  END IF;
+  RETURN NEW;
+END $$;
+
+CREATE TRIGGER membership_owner_limit BEFORE INSERT OR UPDATE OF role ON membership
+  FOR EACH ROW EXECUTE FUNCTION membership_owner_limit();
 
 CREATE TABLE invitation (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -182,7 +200,9 @@ CREATE TABLE subscription (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL UNIQUE REFERENCES organization (id),
   plan_id uuid NOT NULL REFERENCES plan (id),
+  pending_plan_id uuid REFERENCES plan (id),
   status text NOT NULL CHECK (status IN ('internal', 'incomplete', 'active', 'past_due', 'canceled')),
+  cancel_at_period_end boolean NOT NULL DEFAULT false,
   current_period_end timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -411,7 +431,15 @@ CREATE TABLE payout (
   status text NOT NULL CHECK (status IN ('requested', 'sent', 'failed')),
   destination_ref text NOT NULL,
   requested_by uuid NOT NULL REFERENCES app_user (id),
+  approved_by uuid REFERENCES app_user (id),
   created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE payout_account (
+  organization_id uuid PRIMARY KEY REFERENCES organization (id),
+  destination_ref text NOT NULL,
+  currency char(3) NOT NULL,
+  verified_at timestamptz NOT NULL
 );
 
 ALTER TABLE campaign_ledger_entry
@@ -546,6 +574,7 @@ CREATE TABLE webhook_event (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   provider text NOT NULL CHECK (provider IN ('donations', 'billing')),
   event_id text NOT NULL,
+  payload jsonb,
   received_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (provider, event_id)
 );
@@ -749,7 +778,8 @@ BEGIN
     'privacy_notice', 'campaign_share', 'content_item', 'content_variant', 'content_approval',
     'social_connection', 'publication', 'publication_attempt', 'donation_page', 'mandate',
     'donation', 'campaign_ledger_entry', 'payout', 'ad_spend', 'visit_event', 'metric_bucket',
-    'live_session', 'live_destination', 'live_usage', 'notification', 'report_job', 'push_token'
+    'live_session', 'live_destination', 'live_usage', 'notification', 'report_job', 'push_token',
+    'payout_account'
   ]
   LOOP
     EXECUTE format('ALTER TABLE %I ENABLE ROW LEVEL SECURITY', t);
@@ -770,6 +800,14 @@ CREATE POLICY donation_select ON donation FOR SELECT TO app_api USING (
   OR 'analyst' = ANY (app_member_roles(organization_id))
 );
 
+CREATE POLICY donation_contact_update ON donation FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'treasurer' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'treasurer' = ANY (app_member_roles(organization_id))
+);
+
 DROP POLICY campaign_ledger_entry_select ON campaign_ledger_entry;
 CREATE POLICY ledger_select ON campaign_ledger_entry FOR SELECT TO app_api USING (
   'owner' = ANY (app_member_roles(organization_id))
@@ -785,6 +823,36 @@ CREATE POLICY payout_select ON payout FOR SELECT TO app_api USING (
   OR 'analyst' = ANY (app_member_roles(organization_id))
 );
 
+CREATE POLICY payout_write ON payout FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'treasurer' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY payout_update ON payout FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'treasurer' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'treasurer' = ANY (app_member_roles(organization_id))
+);
+
+DROP POLICY payout_account_select ON payout_account;
+CREATE POLICY payout_account_select ON payout_account FOR SELECT TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'treasurer' = ANY (app_member_roles(organization_id))
+  OR 'analyst' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY payout_account_write ON payout_account FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY payout_account_update ON payout_account FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+);
+
 DROP POLICY ad_spend_select ON ad_spend;
 CREATE POLICY ad_spend_select ON ad_spend FOR SELECT TO app_api USING (
   'owner' = ANY (app_member_roles(organization_id))
@@ -794,8 +862,62 @@ CREATE POLICY ad_spend_select ON ad_spend FOR SELECT TO app_api USING (
 CREATE POLICY membership_self_owner ON membership FOR INSERT TO app_api
   WITH CHECK (user_id = app_current_user() AND role = 'owner');
 
+CREATE POLICY membership_second_owner ON membership FOR INSERT TO app_api
+  WITH CHECK (
+    role = 'owner'
+    AND user_id <> app_current_user()
+    AND 'owner' = ANY (app_member_roles(organization_id))
+  );
+
+CREATE POLICY membership_remove ON membership FOR DELETE TO app_api
+  USING (
+    role <> 'owner'
+    AND user_id <> app_current_user()
+    AND (
+      'owner' = ANY (app_member_roles(organization_id))
+      OR 'admin' = ANY (app_member_roles(organization_id))
+    )
+  );
+
+CREATE POLICY invitation_write ON invitation FOR INSERT TO app_api
+  WITH CHECK (
+    role IN ('admin', 'editor', 'publisher', 'treasurer', 'analyst')
+    AND (
+      'owner' = ANY (app_member_roles(organization_id))
+      OR 'admin' = ANY (app_member_roles(organization_id))
+    )
+  );
+
+CREATE POLICY invitation_update ON invitation FOR UPDATE TO app_api
+  USING (
+    'owner' = ANY (app_member_roles(organization_id))
+    OR 'admin' = ANY (app_member_roles(organization_id))
+  )
+  WITH CHECK (
+    role IN ('admin', 'editor', 'publisher', 'treasurer', 'analyst')
+    AND (
+      'owner' = ANY (app_member_roles(organization_id))
+      OR 'admin' = ANY (app_member_roles(organization_id))
+    )
+  );
+
+CREATE POLICY report_write ON report_job FOR INSERT TO app_api
+  WITH CHECK (
+    requested_by = app_current_user()
+    AND (
+      'owner' = ANY (app_member_roles(organization_id))
+      OR 'treasurer' = ANY (app_member_roles(organization_id))
+      OR 'analyst' = ANY (app_member_roles(organization_id))
+    )
+  );
+
 CREATE POLICY subscription_owner_insert ON subscription FOR INSERT TO app_api
   WITH CHECK ('owner' = ANY (app_member_roles(organization_id)));
+CREATE POLICY subscription_owner_update ON subscription FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+);
 
 CREATE POLICY campaign_write ON campaign FOR INSERT TO app_api WITH CHECK (
   'owner' = ANY (app_member_roles(organization_id))
@@ -864,11 +986,13 @@ GRANT SELECT ON network_catalog, plan, jurisdiction_policy TO app_api, app_worke
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_worker;
 GRANT SELECT, INSERT ON external_identity TO app_api;
 
+GRANT DELETE ON membership TO app_api;
+
 GRANT SELECT, INSERT, UPDATE ON
   app_user, organization, membership, invitation, session, mfa_secret, mfa_recovery_code,
   email_token, device, subscription, invoice, campaign, privacy_notice, campaign_share,
   content_item, content_variant, content_approval, social_connection, publication,
-  donation_page, mandate, donation, payout, ad_spend, live_session, live_destination,
+  donation_page, mandate, donation, payout, payout_account, ad_spend, live_session, live_destination,
   live_usage, notification, push_token, report_job, outbox_event
 TO app_api;
 

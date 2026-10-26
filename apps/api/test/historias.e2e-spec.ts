@@ -16,7 +16,9 @@ describe('historias 1 a 4', () => {
   const email = `owner-${Date.now()}@example.test`;
 
   beforeAll(async () => {
-    const moduleFixture = await Test.createTestingModule({ imports: [AppModule] }).compile();
+    const moduleFixture = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
     app = moduleFixture.createNestApplication();
     app.setGlobalPrefix('v1');
     await app.init();
@@ -28,17 +30,38 @@ describe('historias 1 a 4', () => {
   });
 
   it('verifica, entra, crea la organización y una campaña en borrador', async () => {
-    await request(app.getHttpServer()).post('/v1/auth/register').send({ email, password: 'corta' }).expect(422);
-    await request(app.getHttpServer()).post('/v1/auth/register').send({ email, password }).expect(201);
-    await request(app.getHttpServer()).post('/v1/auth/register').send({ email, password }).expect(422);
+    await request(app.getHttpServer())
+      .post('/v1/auth/register')
+      .send({ email, password: 'corta' })
+      .expect(422);
+    await request(app.getHttpServer())
+      .post('/v1/auth/register')
+      .send({ email, password })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/v1/auth/register')
+      .send({ email, password })
+      .expect(422);
 
     const token = mail.latest(email, 'verify')?.token;
     expect(token).toBeTruthy();
-    await request(app.getHttpServer()).post('/v1/auth/verify').send({ token: 'vencido' }).expect(422);
-    await request(app.getHttpServer()).post('/v1/auth/verify').send({ token }).expect(204);
-    await request(app.getHttpServer()).post('/v1/auth/verify').send({ token }).expect(422);
+    await request(app.getHttpServer())
+      .post('/v1/auth/verify')
+      .send({ token: 'vencido' })
+      .expect(422);
+    await request(app.getHttpServer())
+      .post('/v1/auth/verify')
+      .send({ token })
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/v1/auth/verify')
+      .send({ token })
+      .expect(422);
 
-    const login = await request(app.getHttpServer()).post('/v1/auth/login').send({ email, password }).expect(200);
+    const login = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email, password })
+      .expect(200);
     const access = login.body.accessToken as string;
     const refresh = cookie(login);
 
@@ -48,8 +71,14 @@ describe('historias 1 a 4', () => {
       .send({ name: 'Causa Norte', country: 'MX' })
       .expect(201);
 
-    await request(app.getHttpServer()).post('/v1/auth/logout').set('cookie', refresh).expect(204);
-    const enroll = await request(app.getHttpServer()).post('/v1/auth/login').send({ email, password }).expect(401);
+    await request(app.getHttpServer())
+      .post('/v1/auth/logout')
+      .set('cookie', refresh)
+      .expect(204);
+    const enroll = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email, password })
+      .expect(401);
     expect(enroll.body.code).toBe('mfa_enroll_required');
 
     const started = await request(app.getHttpServer())
@@ -63,10 +92,17 @@ describe('historias 1 a 4', () => {
       .expect(200);
     expect(confirmed.body.recoveryCodes).toHaveLength(8);
 
-    await request(app.getHttpServer()).post('/v1/auth/login').send({ email, password }).expect(401);
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email, password })
+      .expect(401);
     const again = await request(app.getHttpServer())
       .post('/v1/auth/login')
-      .send({ email, password, totp: totpCode(base32Decode(started.body.secret as string)) })
+      .send({
+        email,
+        password,
+        totp: totpCode(base32Decode(started.body.secret as string)),
+      })
       .expect(200);
 
     const campaignName = `Rio ${Date.now()}`;
@@ -84,7 +120,9 @@ describe('historias 1 a 4', () => {
       })
       .expect(201);
     expect(campaign.body.status).toBe('borrador');
-    expect(campaign.body.slug).toBe(campaignName.toLowerCase().replace(' ', '-'));
+    expect(campaign.body.slug).toBe(
+      campaignName.toLowerCase().replace(' ', '-'),
+    );
     expect(campaign.body.storeUrl).toBe('https://tienda.example.test/agua');
 
     await request(app.getHttpServer())
@@ -125,50 +163,109 @@ describe('historias 1 a 4', () => {
 
   it('bloquea la clave al quinto fallo y la nueva clave revoca la sesión', async () => {
     const other = `lock-${Date.now()}@example.test`;
-    await request(app.getHttpServer()).post('/v1/auth/register').send({ email: other, password }).expect(201);
+    await request(app.getHttpServer())
+      .post('/v1/auth/register')
+      .send({ email: other, password })
+      .expect(201);
     const token = mail.latest(other, 'verify')?.token ?? '';
-    await request(app.getHttpServer()).post('/v1/auth/verify').send({ token }).expect(204);
-    const first = await request(app.getHttpServer()).post('/v1/auth/login').send({ email: other, password }).expect(200);
+    await request(app.getHttpServer())
+      .post('/v1/auth/verify')
+      .send({ token })
+      .expect(204);
+    const first = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: other, password })
+      .expect(200);
 
     for (let attempt = 0; attempt < 4; attempt += 1) {
-      await request(app.getHttpServer()).post('/v1/auth/login').send({ email: other, password: 'clave-mala-1234' }).expect(401);
+      await request(app.getHttpServer())
+        .post('/v1/auth/login')
+        .send({ email: other, password: 'clave-mala-1234' })
+        .expect(401);
     }
-    const locked = await request(app.getHttpServer()).post('/v1/auth/login').send({ email: other, password: 'clave-mala-1234' }).expect(401);
+    const locked = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: other, password: 'clave-mala-1234' })
+      .expect(401);
     expect(locked.body.code).toBe('locked');
 
-    await request(app.getHttpServer()).post('/v1/auth/password/forgot').send({ email: other }).expect(204);
-    await request(app.getHttpServer()).post('/v1/auth/password/forgot').send({ email: 'nadie@example.test' }).expect(204);
+    await request(app.getHttpServer())
+      .post('/v1/auth/password/forgot')
+      .send({ email: other })
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/v1/auth/password/forgot')
+      .send({ email: 'nadie@example.test' })
+      .expect(204);
     const reset = mail.latest(other, 'reset')?.token ?? '';
     await request(app.getHttpServer())
       .post('/v1/auth/password/reset')
       .send({ token: reset, password: 'clave-nueva-1234' })
       .expect(204);
-    await request(app.getHttpServer()).post('/v1/auth/refresh').set('cookie', cookie(first)).expect(401);
-    await request(app.getHttpServer()).post('/v1/auth/login').send({ email: other, password: 'clave-nueva-1234' }).expect(200);
+    await request(app.getHttpServer())
+      .post('/v1/auth/refresh')
+      .set('cookie', cookie(first))
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: other, password: 'clave-nueva-1234' })
+      .expect(200);
   });
 
   it('no enlaza un subject de proveedor por correo', async () => {
     const service = app.get(IdentidadService);
     const first = `a-${Date.now()}@example.test`;
     const second = `b-${Date.now()}@example.test`;
-    await request(app.getHttpServer()).post('/v1/auth/register').send({ email: first, password }).expect(201);
-    await request(app.getHttpServer()).post('/v1/auth/register').send({ email: second, password }).expect(201);
+    await request(app.getHttpServer())
+      .post('/v1/auth/register')
+      .send({ email: first, password })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/v1/auth/register')
+      .send({ email: second, password })
+      .expect(201);
     const login = await request(app.getHttpServer())
       .post('/v1/auth/login')
       .send({ email: first, password })
       .expect(401);
     expect(login.body.code).toBe('email_unverified');
-    await request(app.getHttpServer()).post('/v1/auth/verify').send({ token: mail.latest(first, 'verify')?.token }).expect(204);
-    await request(app.getHttpServer()).post('/v1/auth/verify').send({ token: mail.latest(second, 'verify')?.token }).expect(204);
-    const session = await request(app.getHttpServer()).post('/v1/auth/login').send({ email: first, password }).expect(200);
-    const payload = JSON.parse(Buffer.from(String(session.body.accessToken).split('.')[1], 'base64url').toString()) as { sub: string };
-    const other = await request(app.getHttpServer()).post('/v1/auth/login').send({ email: second, password }).expect(200);
-    const otherId = JSON.parse(Buffer.from(String(other.body.accessToken).split('.')[1], 'base64url').toString()) as { sub: string };
+    await request(app.getHttpServer())
+      .post('/v1/auth/verify')
+      .send({ token: mail.latest(first, 'verify')?.token })
+      .expect(204);
+    await request(app.getHttpServer())
+      .post('/v1/auth/verify')
+      .send({ token: mail.latest(second, 'verify')?.token })
+      .expect(204);
+    const session = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: first, password })
+      .expect(200);
+    const payload = JSON.parse(
+      Buffer.from(
+        String(session.body.accessToken).split('.')[1],
+        'base64url',
+      ).toString(),
+    ) as { sub: string };
+    const other = await request(app.getHttpServer())
+      .post('/v1/auth/login')
+      .send({ email: second, password })
+      .expect(200);
+    const otherId = JSON.parse(
+      Buffer.from(
+        String(other.body.accessToken).split('.')[1],
+        'base64url',
+      ).toString(),
+    ) as { sub: string };
     await service.saveSubject(payload.sub, 'google', `sub-${Date.now()}`);
     const subject = `shared-${Date.now()}`;
     await service.saveSubject(payload.sub, 'microsoft', subject);
-    await expect(service.saveSubject(otherId.sub, 'microsoft', subject)).rejects.toMatchObject({ code: 'subject_taken' });
-    await expect(service.userIdForSubject('google', first)).resolves.toBeUndefined();
+    await expect(
+      service.saveSubject(otherId.sub, 'microsoft', subject),
+    ).rejects.toMatchObject({ code: 'subject_taken' });
+    await expect(
+      service.userIdForSubject('google', first),
+    ).resolves.toBeUndefined();
   });
 });
 

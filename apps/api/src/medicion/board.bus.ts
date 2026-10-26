@@ -1,7 +1,16 @@
 import { EventEmitter } from 'events';
 import { Injectable } from '@nestjs/common';
 
-export type BoardEvent = { name: 'visit.counted'; campaignId: string };
+export type BoardEvent =
+  | { name: 'visit.counted'; campaignId: string }
+  | {
+      name: 'live.destination';
+      campaignId: string;
+      destinationId: string;
+      network: string;
+      status: string;
+      failureReason?: string;
+    };
 
 @Injectable()
 export class BoardBus {

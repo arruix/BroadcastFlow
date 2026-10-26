@@ -1,4 +1,11 @@
-import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, timingSafeEqual } from 'crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from 'crypto';
 
 const devJwt = 'dev-only-jwt-secret-change-me';
 const devMfa = 'dev-only-mfa-key-change-me';
@@ -48,11 +55,23 @@ type AccessClaims = {
   exp: number;
 };
 
-export function signJwt(claims: Omit<AccessClaims, 'exp'>, ttlSeconds: number): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url');
-  const body = Buffer.from(JSON.stringify({ ...claims, exp: Math.floor(Date.now() / 1000) + ttlSeconds })).toString('base64url');
+export function signJwt(
+  claims: Omit<AccessClaims, 'exp'>,
+  ttlSeconds: number,
+): string {
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'HS256', typ: 'JWT' }),
+  ).toString('base64url');
+  const body = Buffer.from(
+    JSON.stringify({
+      ...claims,
+      exp: Math.floor(Date.now() / 1000) + ttlSeconds,
+    }),
+  ).toString('base64url');
   const data = `${header}.${body}`;
-  const sig = createHmac('sha256', secret('JWT_SECRET', devJwt)).update(data).digest('base64url');
+  const sig = createHmac('sha256', secret('JWT_SECRET', devJwt))
+    .update(data)
+    .digest('base64url');
   return `${data}.${sig}`;
 }
 
@@ -60,10 +79,15 @@ export function verifyJwt(token: string): AccessClaims | undefined {
   const [header, body, sig] = token.split('.');
   if (!header || !body || !sig) return undefined;
   const data = `${header}.${body}`;
-  const expected = createHmac('sha256', secret('JWT_SECRET', devJwt)).update(data).digest();
+  const expected = createHmac('sha256', secret('JWT_SECRET', devJwt))
+    .update(data)
+    .digest();
   const actual = Buffer.from(sig, 'base64url');
-  if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) return undefined;
-  const claims = JSON.parse(Buffer.from(body, 'base64url').toString()) as AccessClaims;
+  if (actual.length !== expected.length || !timingSafeEqual(actual, expected))
+    return undefined;
+  const claims = JSON.parse(
+    Buffer.from(body, 'base64url').toString(),
+  ) as AccessClaims;
   if (claims.exp * 1000 <= Date.now()) return undefined;
   return claims;
 }
@@ -116,23 +140,72 @@ export function totpCode(secret: Buffer, at = Date.now()): string {
 export function donationsWebhookSecret(): string {
   const value = process.env.DONATIONS_WEBHOOK_SECRET;
   if (value) return value;
-  if (process.env.NODE_ENV === 'production') throw new Error('DONATIONS_WEBHOOK_SECRET is required');
+  if (process.env.NODE_ENV === 'production')
+    throw new Error('DONATIONS_WEBHOOK_SECRET is required');
   return 'dev-only-donations-webhook-secret';
 }
 
-export function signWebhook(payload: string, timestamp = Math.floor(Date.now() / 1000)): string {
-  const signature = createHmac('sha256', donationsWebhookSecret()).update(`${timestamp}.${payload}`).digest('hex');
+export function billingWebhookSecret(): string {
+  const value = process.env.BILLING_WEBHOOK_SECRET;
+  if (value) return value;
+  if (process.env.NODE_ENV === 'production')
+    throw new Error('BILLING_WEBHOOK_SECRET is required');
+  return 'dev-only-billing-webhook-secret';
+}
+
+export function signWebhook(
+  payload: string,
+  timestamp = Math.floor(Date.now() / 1000),
+): string {
+  const signature = createHmac('sha256', donationsWebhookSecret())
+    .update(`${timestamp}.${payload}`)
+    .digest('hex');
   return `t=${timestamp},v1=${signature}`;
 }
 
-export function webhookSignatureOk(payload: string, header: string | undefined, now = Date.now()): boolean {
+export function signBillingWebhook(
+  payload: string,
+  timestamp = Math.floor(Date.now() / 1000),
+): string {
+  const signature = createHmac('sha256', billingWebhookSecret())
+    .update(`${timestamp}.${payload}`)
+    .digest('hex');
+  return `t=${timestamp},v1=${signature}`;
+}
+
+export function webhookSignatureOk(
+  payload: string,
+  header: string | undefined,
+  now = Date.now(),
+): boolean {
+  return signatureOk(payload, header, donationsWebhookSecret(), now);
+}
+
+export function billingSignatureOk(
+  payload: string,
+  header: string | undefined,
+  now = Date.now(),
+): boolean {
+  return signatureOk(payload, header, billingWebhookSecret(), now);
+}
+
+function signatureOk(
+  payload: string,
+  header: string | undefined,
+  secret: string,
+  now: number,
+): boolean {
   if (!header) return false;
-  const parts = new Map(header.split(',').map((part) => part.split('=') as [string, string]));
+  const parts = new Map(
+    header.split(',').map((part) => part.split('=') as [string, string]),
+  );
   const timestamp = Number(parts.get('t'));
   const signature = parts.get('v1');
   if (!Number.isFinite(timestamp) || !signature) return false;
   if (Math.abs(now - timestamp * 1000) > 300_000) return false;
-  const expected = createHmac('sha256', donationsWebhookSecret()).update(`${timestamp}.${payload}`).digest('hex');
+  const expected = createHmac('sha256', secret)
+    .update(`${timestamp}.${payload}`)
+    .digest('hex');
   const actual = Buffer.from(signature);
   const wanted = Buffer.from(expected);
   if (actual.length !== wanted.length) return false;
@@ -140,5 +213,7 @@ export function webhookSignatureOk(payload: string, header: string | undefined, 
 }
 
 export function totpValid(secret: Buffer, token: string): boolean {
-  return [-1, 0, 1].some((window) => totpCode(secret, Date.now() + window * 30000) === token);
+  return [-1, 0, 1].some(
+    (window) => totpCode(secret, Date.now() + window * 30000) === token,
+  );
 }

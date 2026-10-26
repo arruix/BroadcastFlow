@@ -1,5 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { DbService } from '../db/db.service';
+import { DbService, type Queryable } from '../db/db.service';
+import { playbackUrl } from '../envivo/playback';
+import { LibroService } from '../libro/libro.service';
+import { signWebhook } from '../shared/crypto';
 import { DomainException } from '../shared/domain';
 import { splitDonation } from '../shared/fees';
 import { tooMany } from '../shared/rate-limit';
@@ -15,10 +18,28 @@ export type DonationInput = {
 };
 
 const fiscalReceipt = false;
+const contactRetention = '5 years';
+
+type DonationRow = {
+  id: string;
+  status: string;
+  gross_minor: string;
+  net_minor: string;
+  processor_fee_minor: string;
+  platform_fee_minor: string;
+  currency: string;
+  privacy_notice_id: string;
+  donor_name: string | null;
+  donor_email: string | null;
+  anonymized_at: Date | null;
+};
 
 @Injectable()
 export class RecaudacionService {
-  constructor(private readonly db: DbService) {}
+  constructor(
+    private readonly db: DbService,
+    private readonly libro: LibroService,
+  ) {}
 
   async readPublic(slug: string) {
     const found = await this.db.asWorker((db) =>
@@ -40,17 +61,22 @@ export class RecaudacionService {
         share_title: string | null;
         share_description: string | null;
         image_key: string | null;
+        live_id: string | null;
       }>(
         `SELECT c.name, c.slug, c.status, c.kind, c.currency, p.donations_enabled,
                 d.campaign_id AS page_campaign_id,
                 n.id AS notice_id, n.version, n.controller, n.purpose, n.data_categories, n.retention, n.published_at,
-                sh.title AS share_title, sh.description AS share_description, sh.image_key
+                sh.title AS share_title, sh.description AS share_description, sh.image_key,
+                live.id AS live_id
          FROM campaign c
          JOIN subscription s ON s.organization_id = c.organization_id
          JOIN plan p ON p.id = s.plan_id
          LEFT JOIN donation_page d ON d.campaign_id = c.id
          LEFT JOIN privacy_notice n ON n.campaign_id = c.id AND n.published_at IS NOT NULL AND n.retired_at IS NULL
          LEFT JOIN campaign_share sh ON sh.campaign_id = c.id
+         LEFT JOIN LATERAL (
+           SELECT id FROM live_session WHERE campaign_id = c.id AND status = 'live' ORDER BY started_at DESC LIMIT 1
+         ) live ON true
          WHERE c.slug = $1`,
         [slug],
       ),
@@ -74,26 +100,49 @@ export class RecaudacionService {
       status: row.status,
       kind: row.kind,
       currency: row.currency.trim(),
-      donateEnabled: Boolean(notice && row.page_campaign_id && row.status === 'activa' && row.donations_enabled),
+      donateEnabled: Boolean(
+        notice &&
+        row.page_campaign_id &&
+        row.status === 'activa' &&
+        row.donations_enabled,
+      ),
       notice,
       share: row.share_title
-        ? { title: row.share_title, description: row.share_description, imageKey: row.image_key }
+        ? {
+            title: row.share_title,
+            description: row.share_description,
+            imageKey: row.image_key,
+          }
         : null,
+      live: row.live_id ? { playbackUrl: playbackUrl(row.live_id) } : null,
     };
   }
 
-  async start(slug: string, input: DonationInput, idempotencyKey: string | undefined, ip: string) {
-    if (tooMany(`donation:${ip}:${slug}`)) throw new DomainException('rate_limited', 429);
-    if (!idempotencyKey || idempotencyKey.trim().length < 8) throw new DomainException('idempotency_required', 422);
+  async start(
+    slug: string,
+    input: DonationInput,
+    idempotencyKey: string | undefined,
+    ip: string,
+  ) {
+    if (tooMany(`donation:${ip}:${slug}`))
+      throw new DomainException('rate_limited', 429);
+    if (!idempotencyKey || idempotencyKey.trim().length < 8)
+      throw new DomainException('idempotency_required', 422);
     const key = idempotencyKey.trim().slice(0, 200);
     const donorName = cleanText(input.donorName, 120);
     const donorEmail = cleanText(input.donorEmail, 200).toLowerCase();
-    if (!donorName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donorEmail)) throw new DomainException('not_eligible', 422);
-    if (input.personKind && input.personKind !== 'individual' && input.personKind !== 'organization') {
+    if (!donorName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donorEmail))
+      throw new DomainException('not_eligible', 422);
+    if (
+      input.personKind &&
+      input.personKind !== 'individual' &&
+      input.personKind !== 'organization'
+    ) {
       throw new DomainException('not_eligible', 422);
     }
     const amount = Number(input.amountMinor);
-    if (!Number.isInteger(amount) || amount < 1) throw new DomainException('not_eligible', 422);
+    if (!Number.isInteger(amount) || amount < 1)
+      throw new DomainException('not_eligible', 422);
     const currency = (input.currency ?? '').trim().toUpperCase();
 
     return this.db.asWorker(async (db) => {
@@ -120,11 +169,19 @@ export class RecaudacionService {
       );
       const campaign = found.rows[0];
       if (!campaign) throw new NotFoundException();
-      if (!campaign.notice_id) throw new DomainException('notice_required', 422);
-      if (campaign.kind === 'comercial' || !campaign.page_campaign_id || !campaign.donations_enabled) {
+      if (!campaign.notice_id)
+        throw new DomainException('notice_required', 422);
+      if (
+        campaign.kind === 'comercial' ||
+        !campaign.page_campaign_id ||
+        !campaign.donations_enabled
+      ) {
         throw new DomainException('commercial_has_no_donation_page', 422);
       }
-      if (campaign.status !== 'activa' || currency !== campaign.currency.trim()) {
+      if (
+        campaign.status !== 'activa' ||
+        currency !== campaign.currency.trim()
+      ) {
         throw new DomainException('not_eligible', 422);
       }
       const existing = await db.query<{ id: string }>(
@@ -135,7 +192,11 @@ export class RecaudacionService {
         return pending(existing.rows[0].id, campaign.notice_id);
       }
       const split = splitDonation(amount, campaign.platform_fee_bps);
-      const visitAnonymousId = /^[0-9a-f-]{36}$/i.test(input.visitAnonymousId ?? '') ? input.visitAnonymousId : null;
+      const visitAnonymousId = /^[0-9a-f-]{36}$/i.test(
+        input.visitAnonymousId ?? '',
+      )
+        ? input.visitAnonymousId
+        : null;
       const inserted = await db.query<{ id: string }>(
         `INSERT INTO donation (
            organization_id, campaign_id, donation_page_campaign_id, privacy_notice_id, idempotency_key,
@@ -165,42 +226,160 @@ export class RecaudacionService {
   async receipt(donationId: string) {
     if (!/^[0-9a-f-]{36}$/i.test(donationId)) throw new NotFoundException();
     const found = await this.db.asWorker((db) =>
+      db.query<DonationRow>(donationSelect, [donationId]),
+    );
+    const row = found.rows[0];
+    if (!row) throw new NotFoundException();
+    return donationRecord(row);
+  }
+
+  async payDonation(donationId: string) {
+    if (!/^[0-9a-f-]{36}$/i.test(donationId)) throw new NotFoundException();
+    const found = await this.db.asWorker((db) =>
       db.query<{
         id: string;
+        organization_id: string;
+        campaign_id: string;
         status: string;
         gross_minor: string;
         net_minor: string;
         processor_fee_minor: string;
         platform_fee_minor: string;
         currency: string;
-        privacy_notice_id: string;
-        donor_name: string | null;
-        donor_email: string | null;
-        anonymized_at: Date | null;
       }>(
-        `SELECT id, status, gross_minor, net_minor, processor_fee_minor, platform_fee_minor, currency,
-                privacy_notice_id, donor_name, donor_email, anonymized_at
+        `SELECT id, organization_id, campaign_id, status, gross_minor, net_minor,
+                processor_fee_minor, platform_fee_minor, currency
          FROM donation WHERE id = $1`,
         [donationId],
       ),
     );
-    const row = found.rows[0];
-    if (!row) throw new NotFoundException();
-    return {
-      id: row.id,
-      status: row.status,
-      grossMinor: Number(row.gross_minor),
-      netMinor: Number(row.net_minor),
-      processorFeeMinor: Number(row.processor_fee_minor),
-      platformFeeMinor: Number(row.platform_fee_minor),
-      currency: row.currency.trim(),
-      privacyNoticeId: row.privacy_notice_id,
-      donorName: row.donor_name,
-      donorEmail: row.donor_email,
-      anonymizedAt: row.anonymized_at ? row.anonymized_at.toISOString() : null,
-      fiscalReceipt,
-    };
+    const donation = found.rows[0];
+    if (!donation) throw new NotFoundException();
+    if (donation.status === 'liquidada') {
+      return { donationId: donation.id, status: 'liquidada' };
+    }
+    if (donation.status !== 'pendiente') {
+      throw new DomainException('not_eligible', 422);
+    }
+    const eventId = `evt_pay_${donation.id.slice(0, 8)}_${Date.now()}`;
+    const payload = JSON.stringify({
+      id: eventId,
+      donationId: donation.id,
+      grossMinor: Number(donation.gross_minor),
+      netMinor: Number(donation.net_minor),
+      processorFeeMinor: Number(donation.processor_fee_minor),
+      platformFeeMinor: Number(donation.platform_fee_minor),
+      currency: donation.currency.trim(),
+    });
+    const signature = signWebhook(payload);
+    await this.libro.settle(Buffer.from(payload), signature);
+    return { donationId: donation.id, status: 'liquidada' };
   }
+
+  async rights(
+    userId: string,
+    organizationId: string,
+    donationId: string,
+    input: { action?: string; donorName?: string; donorEmail?: string },
+  ) {
+    const action = input.action;
+    if (
+      action !== 'access' &&
+      action !== 'rectify' &&
+      action !== 'cancel' &&
+      action !== 'oppose'
+    ) {
+      throw new DomainException('not_eligible', 422);
+    }
+    if (!/^[0-9a-f-]{36}$/i.test(donationId)) throw new NotFoundException();
+    const record = await this.db.asUser(userId, async (db) => {
+      await requireRole(db, organizationId, userId, ['owner', 'treasurer']);
+      const found = await db.query<DonationRow>(
+        `${donationSelect} AND organization_id = $2`,
+        [donationId, organizationId],
+      );
+      const row = found.rows[0];
+      if (!row) throw new NotFoundException();
+      if (
+        action === 'access' ||
+        ((action === 'cancel' || action === 'oppose') && row.anonymized_at)
+      ) {
+        return donationRecord(row);
+      }
+      if (row.anonymized_at) throw new DomainException('not_eligible', 422);
+      if (action === 'rectify') {
+        const donorName = cleanText(input.donorName, 120);
+        const donorEmail = cleanText(input.donorEmail, 254).toLowerCase();
+        if (!donorName || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(donorEmail))
+          throw new DomainException('not_eligible', 422);
+        const updated = await db.query<DonationRow>(
+          `UPDATE donation SET donor_name = $3, donor_email = $4
+           WHERE id = $1 AND organization_id = $2 AND anonymized_at IS NULL
+           RETURNING id, status, gross_minor, net_minor, processor_fee_minor, platform_fee_minor, currency,
+                     privacy_notice_id, donor_name, donor_email, anonymized_at`,
+          [donationId, organizationId, donorName, donorEmail],
+        );
+        if (!updated.rows[0]) throw new DomainException('not_eligible', 422);
+        return donationRecord(updated.rows[0]);
+      }
+      const cleared = await db.query<DonationRow>(
+        `UPDATE donation SET donor_name = NULL, donor_email = NULL, anonymized_at = now()
+         WHERE id = $1 AND organization_id = $2 AND anonymized_at IS NULL
+           AND created_at <= now() - $3::interval
+         RETURNING id, status, gross_minor, net_minor, processor_fee_minor, platform_fee_minor, currency,
+                   privacy_notice_id, donor_name, donor_email, anonymized_at`,
+        [donationId, organizationId, contactRetention],
+      );
+      if (!cleared.rows[0])
+        throw new DomainException('rights_retention_active', 422);
+      return donationRecord(cleared.rows[0]);
+    });
+    await this.db.asWorker((db) =>
+      db.query(
+        `INSERT INTO audit_event (organization_id, actor_user_id, action, entity, entity_id)
+         VALUES ($1, $2, $3, 'donation', $4)`,
+        [organizationId, userId, `donor.${action}`, donationId],
+      ),
+    );
+    return record;
+  }
+}
+
+const donationSelect = `SELECT id, status, gross_minor, net_minor, processor_fee_minor, platform_fee_minor, currency,
+  privacy_notice_id, donor_name, donor_email, anonymized_at
+  FROM donation WHERE id = $1`;
+
+function donationRecord(row: DonationRow) {
+  return {
+    id: row.id,
+    status: row.status,
+    grossMinor: Number(row.gross_minor),
+    netMinor: Number(row.net_minor),
+    processorFeeMinor: Number(row.processor_fee_minor),
+    platformFeeMinor: Number(row.platform_fee_minor),
+    currency: row.currency.trim(),
+    privacyNoticeId: row.privacy_notice_id,
+    donorName: row.donor_name,
+    donorEmail: row.donor_email,
+    anonymizedAt: row.anonymized_at ? row.anonymized_at.toISOString() : null,
+    fiscalReceipt,
+  };
+}
+
+async function requireRole(
+  db: Queryable,
+  organizationId: string,
+  userId: string,
+  allowed: string[],
+) {
+  if (!/^[0-9a-f-]{36}$/i.test(organizationId))
+    throw new DomainException('forbidden', 403);
+  const found = await db.query<{ role: string }>(
+    `SELECT role FROM membership WHERE organization_id = $1 AND user_id = $2`,
+    [organizationId, userId],
+  );
+  if (!found.rows.some((row) => allowed.includes(row.role)))
+    throw new DomainException('forbidden', 403);
 }
 
 function pending(donationId: string, privacyNoticeId: string) {

@@ -38,7 +38,12 @@ export class AvisosService {
     return rows.rows.map(present);
   }
 
-  async save(userId: string, organizationId: string, campaignId: string, input: NoticeInput) {
+  async save(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    input: NoticeInput,
+  ) {
     await this.ownerOrAdmin(userId, organizationId);
     const fields = readNotice(input);
     try {
@@ -53,7 +58,14 @@ export class AvisosService {
            FROM campaign c
            WHERE c.id = $2 AND c.organization_id = $1
            RETURNING id, version, controller, purpose, data_categories, retention, published_at`,
-          [organizationId, campaignId, fields.controller, fields.purpose, fields.dataCategories, fields.retention],
+          [
+            organizationId,
+            campaignId,
+            fields.controller,
+            fields.purpose,
+            fields.dataCategories,
+            fields.retention,
+          ],
         ),
       );
       if (!inserted.rowCount) throw new DomainException('forbidden', 403);
@@ -63,7 +75,12 @@ export class AvisosService {
     }
   }
 
-  async publish(userId: string, organizationId: string, campaignId: string, noticeId: string) {
+  async publish(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    noticeId: string,
+  ) {
     await this.ownerOrAdmin(userId, organizationId);
     try {
       return await this.db.asUser(userId, async (db) => {
@@ -74,14 +91,18 @@ export class AvisosService {
         );
         const notice = current.rows[0];
         if (!notice) throw new DomainException('forbidden', 403);
-        if (notice.published_at) throw new DomainException('notice_required', 422);
+        if (notice.published_at)
+          throw new DomainException('notice_required', 422);
         const fields = {
           controller: notice.controller,
           purpose: notice.purpose,
           dataCategories: notice.data_categories,
           retention: notice.retention,
         };
-        if (sampleNotice(fields) || Object.values(fields).some((value) => !value.trim())) {
+        if (
+          sampleNotice(fields) ||
+          Object.values(fields).some((value) => !value.trim())
+        ) {
           throw new DomainException('notice_required', 422);
         }
         await db.query(
@@ -95,7 +116,10 @@ export class AvisosService {
            RETURNING id, version, controller, purpose, data_categories, retention, published_at`,
           [noticeId],
         );
-        const plan = await db.query<{ kind: string; donations_enabled: boolean }>(
+        const plan = await db.query<{
+          kind: string;
+          donations_enabled: boolean;
+        }>(
           `SELECT c.kind, p.donations_enabled
            FROM campaign c
            JOIN subscription s ON s.organization_id = c.organization_id
@@ -121,15 +145,17 @@ export class AvisosService {
   }
 
   private async ownerOrAdmin(userId: string, organizationId: string) {
-    if (!/^[0-9a-f-]{36}$/i.test(organizationId)) throw new DomainException('forbidden', 403);
+    if (!/^[0-9a-f-]{36}$/i.test(organizationId))
+      throw new DomainException('forbidden', 403);
     const found = await this.db.asUser(userId, (db) =>
-      db.query<{ role: string }>('SELECT role FROM membership WHERE organization_id = $1 AND user_id = $2', [
-        organizationId,
-        userId,
-      ]),
+      db.query<{ role: string }>(
+        'SELECT role FROM membership WHERE organization_id = $1 AND user_id = $2',
+        [organizationId, userId],
+      ),
     );
     const role = found.rows[0]?.role;
-    if (role !== 'owner' && role !== 'admin') throw new DomainException('forbidden', 403);
+    if (role !== 'owner' && role !== 'admin')
+      throw new DomainException('forbidden', 403);
   }
 }
 
@@ -140,7 +166,12 @@ function readNotice(input: NoticeInput) {
     dataCategories: cleanText(input.dataCategories),
     retention: cleanText(input.retention),
   };
-  if (!fields.controller || !fields.purpose || !fields.dataCategories || !fields.retention) {
+  if (
+    !fields.controller ||
+    !fields.purpose ||
+    !fields.dataCategories ||
+    !fields.retention
+  ) {
     throw new DomainException('notice_required', 422);
   }
   return fields;
