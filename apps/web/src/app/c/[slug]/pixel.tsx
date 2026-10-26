@@ -12,9 +12,35 @@ export function visitId(): string {
   return created;
 }
 
-export function sendVisit(slug: string, eventType: "view" | "click") {
+export type Utm = {
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+};
+
+// UTM de la URL; si no hay, los guardados en la sesión (primer toque).
+export function readUtm(): Utm {
   const params = new URLSearchParams(window.location.search);
-  const utmSource = params.get("utm_source");
+  const fromUrl: Utm = {
+    utmSource: params.get("utm_source")?.slice(0, 100) || undefined,
+    utmMedium: params.get("utm_medium")?.slice(0, 100) || undefined,
+    utmCampaign: params.get("utm_campaign")?.slice(0, 100) || undefined,
+    utmContent: params.get("utm_content")?.slice(0, 100) || undefined,
+  };
+  try {
+    if (Object.values(fromUrl).some(Boolean)) {
+      window.sessionStorage.setItem("bf.utm", JSON.stringify(fromUrl));
+      return fromUrl;
+    }
+    const saved = window.sessionStorage.getItem("bf.utm");
+    return saved ? (JSON.parse(saved) as Utm) : {};
+  } catch {
+    return fromUrl;
+  }
+}
+
+export function sendVisit(slug: string, eventType: "view" | "click") {
   void fetch(`${apiUrl}/public/campaigns/${slug}/visits`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -23,7 +49,7 @@ export function sendVisit(slug: string, eventType: "view" | "click") {
       anonymousId: visitId(),
       eventType,
       referrer: document.referrer || undefined,
-      utmSource: utmSource || undefined,
+      ...readUtm(),
     }),
   });
 }

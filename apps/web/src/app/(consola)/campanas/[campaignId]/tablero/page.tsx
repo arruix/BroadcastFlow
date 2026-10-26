@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
-import { api, explain, watchEvents } from "@/lib/api";
+import { api, download, explain, watchEvents } from "@/lib/api";
 
 type Organization = { id: string };
 type Campaign = { id: string; name: string; currency: string; slug: string };
@@ -22,6 +22,19 @@ type Metrics = {
   cpcVisible: boolean;
   origins: Origin[];
   series: { day: string; views: number; clicks: number }[];
+};
+type Conversion = {
+  origins: { origin: string; visitors: number; pledges: number; amountMinor: number; conversion: number }[];
+  rows: {
+    origin: string;
+    utmSource: string | null;
+    utmMedium: string | null;
+    utmCampaign: string | null;
+    utmContent: string | null;
+    visitors: number;
+    pledges: number;
+    conversion: number;
+  }[];
 };
 type Spend = { id: string; network: string; amountMinor: number; closed: boolean };
 
@@ -51,6 +64,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
   const [from, setFrom] = useState(daysAgo(6));
   const [to, setTo] = useState(today());
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [conversion, setConversion] = useState<Conversion | null>(null);
   const [network, setNetwork] = useState("facebook");
   const [amount, setAmount] = useState("10");
   const [spend, setSpend] = useState<Spend | null>(null);
@@ -58,7 +72,13 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
 
   const load = useCallback(
     async (org: string, campaignId: string, start: string, end: string) => {
-      setMetrics(await api<Metrics>(`/campaigns/${campaignId}/metrics?from=${start}&to=${end}`, { org }));
+      const query = `from=${start}&to=${end}`;
+      const [nextMetrics, nextConversion] = await Promise.all([
+        api<Metrics>(`/campaigns/${campaignId}/metrics?${query}`, { org }),
+        api<Conversion>(`/campaigns/${campaignId}/conversion?${query}`, { org }),
+      ]);
+      setMetrics(nextMetrics);
+      setConversion(nextConversion);
     },
     [],
   );
@@ -126,6 +146,21 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
         }),
       );
       await load(organizationId, campaign.id, from, to);
+    } catch (error) {
+      setMessage(explain(error));
+    }
+  }
+
+  async function exportConversion() {
+    if (!campaign) return;
+    setMessage("");
+    try {
+      const blob = await download(`/campaigns/${campaign.id}/conversion.csv?from=${from}&to=${to}`, organizationId);
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `conversion-${campaign.slug}-${from}-${to}.csv`;
+      link.click();
+      URL.revokeObjectURL(link.href);
     } catch (error) {
       setMessage(explain(error));
     }
@@ -256,6 +291,70 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
               ))}
             </tbody>
           </table>
+        </section>
+        <section className="sheet overflow-x-auto">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-2xl">{tx("Conversión visita → intención", "Visit → pledge conversion")}</h2>
+            <button className="quiet w-fit" type="button" onClick={exportConversion}>
+              {tx("Exportar CSV", "Export CSV")}
+            </button>
+          </div>
+          <p className="lede">
+            {tx(
+              "Visitantes únicos contados contra intenciones de donar registradas, por origen.",
+              "Unique counted visitors versus recorded pledges, by origin."
+            )}
+          </p>
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>{tx("Origen", "Origin")}</th>
+                <th>{tx("Visitantes", "Visitors")}</th>
+                <th>{tx("Intenciones", "Pledges")}</th>
+                <th>{tx("Conversión", "Conversion")}</th>
+                <th>{tx("Monto", "Amount")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {conversion?.origins.map((row) => (
+                <tr key={row.origin}>
+                  <td>{row.origin}</td>
+                  <td>{row.visitors}</td>
+                  <td>{row.pledges}</td>
+                  <td>{percent(row.conversion)}</td>
+                  <td>{(row.amountMinor / 100).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {conversion && conversion.rows.some((row) => row.utmCampaign) ? (
+            <table className="data-table mt-4">
+              <thead>
+                <tr>
+                  <th>utm_source</th>
+                  <th>utm_medium</th>
+                  <th>utm_campaign</th>
+                  <th>utm_content</th>
+                  <th>{tx("Visitantes", "Visitors")}</th>
+                  <th>{tx("Intenciones", "Pledges")}</th>
+                  <th>{tx("Conversión", "Conversion")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {conversion.rows.map((row, index) => (
+                  <tr key={index}>
+                    <td>{row.utmSource ?? "—"}</td>
+                    <td>{row.utmMedium ?? "—"}</td>
+                    <td>{row.utmCampaign ?? "—"}</td>
+                    <td>{row.utmContent ?? "—"}</td>
+                    <td>{row.visitors}</td>
+                    <td>{row.pledges}</td>
+                    <td>{percent(row.conversion)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
         </section>
       </div>
       {message ? <p className="note">{message}</p> : null}

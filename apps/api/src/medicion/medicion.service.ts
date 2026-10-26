@@ -3,7 +3,9 @@ import { Observable } from 'rxjs';
 import { DbService } from '../db/db.service';
 import { DomainException, mapDbError } from '../shared/domain';
 import { assertWritable } from '../shared/subscription';
+import { rejectHoneypot } from '../shared/anti-spam';
 import { tooMany } from '../shared/rate-limit';
+import { readUtm } from '../shared/utm';
 import { BoardBus } from './board.bus';
 import {
   browserName,
@@ -30,12 +32,18 @@ export class MedicionService {
       eventType?: string;
       referrer?: string;
       utmSource?: string;
+      utmMedium?: string;
+      utmCampaign?: string;
+      utmContent?: string;
+      website?: string;
     },
     userAgent: string | undefined,
     ip: string,
   ) {
     if (tooMany(`visit:${ip}:${slug}`))
       throw new DomainException('rate_limited', 429);
+    rejectHoneypot(input.website);
+    const utm = readUtm(input);
     if (
       !uuid.test(input.anonymousId ?? '') ||
       (input.eventType !== 'view' && input.eventType !== 'click')
@@ -69,20 +77,27 @@ export class MedicionService {
         if (recent.rowCount) reason = 'reload_30m';
       }
       const counted = !reason;
-      const origin = visitOrigin(input.utmSource, input.referrer);
+      const origin = visitOrigin(utm.source ?? undefined, input.referrer);
       const agent = (userAgent ?? '').trim();
-      await db.query(`SELECT record_visit($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, [
-        campaign.organization_id,
-        campaign.id,
-        input.anonymousId,
-        origin,
-        null,
-        counted ? browserName(agent) : null,
-        counted ? deviceClass(agent) : null,
-        counted,
-        reason,
-        input.eventType,
-      ]);
+      await db.query(
+        `SELECT record_visit($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [
+          campaign.organization_id,
+          campaign.id,
+          input.anonymousId,
+          origin,
+          null,
+          counted ? browserName(agent) : null,
+          counted ? deviceClass(agent) : null,
+          counted,
+          reason,
+          input.eventType,
+          utm.source,
+          utm.medium,
+          utm.campaign,
+          utm.content,
+        ],
+      );
       if (counted) {
         await db.query(
           `INSERT INTO outbox_event (organization_id, event_code, payload) VALUES ($1, 'visit.counted', $2::jsonb)`,
@@ -105,6 +120,141 @@ export class MedicionService {
         name: 'visit.counted',
         campaignId: saved.campaignId,
       });
+  }
+
+  // Conversión visita → intención de donar, por origen y UTM.
+  async conversion(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    from: string | undefined,
+    to: string | undefined,
+  ) {
+    await this.requireRole(userId, organizationId, [
+      'owner',
+      'admin',
+      'analyst',
+    ]);
+    if (
+      !dateOnly.test(from ?? '') ||
+      !dateOnly.test(to ?? '') ||
+      (from ?? '') > (to ?? '')
+    ) {
+      throw new DomainException('dates_invalid', 422);
+    }
+    return this.db.asUser(userId, async (db) => {
+      const campaign = await db.query<{ time_zone: string }>(
+        'SELECT time_zone FROM campaign WHERE id = $1 AND organization_id = $2',
+        [campaignId, organizationId],
+      );
+      if (!campaign.rowCount) throw new DomainException('forbidden', 403);
+      const zone = campaign.rows[0].time_zone;
+      const result = await db.query<ConversionRow>(
+        `WITH visits AS (
+           SELECT origin, coalesce(utm_source, '') AS utm_source, coalesce(utm_medium, '') AS utm_medium,
+                  coalesce(utm_campaign, '') AS utm_campaign, coalesce(utm_content, '') AS utm_content,
+                  count(DISTINCT anonymous_id) AS visitors
+           FROM visit_event
+           WHERE campaign_id = $1 AND organization_id = $2 AND counted AND event_type = 'view'
+             AND occurred_at >= ($3::timestamp AT TIME ZONE $5)
+             AND occurred_at < (($4::date + 1)::timestamp AT TIME ZONE $5)
+           GROUP BY 1, 2, 3, 4, 5
+         ), pledges AS (
+           SELECT coalesce(origin, 'other') AS origin, coalesce(utm_source, '') AS utm_source,
+                  coalesce(utm_medium, '') AS utm_medium, coalesce(utm_campaign, '') AS utm_campaign,
+                  coalesce(utm_content, '') AS utm_content,
+                  count(*) AS pledges, coalesce(sum(gross_minor), 0) AS amount_minor
+           FROM donation
+           WHERE campaign_id = $1 AND organization_id = $2
+             AND created_at >= ($3::timestamp AT TIME ZONE $5)
+             AND created_at < (($4::date + 1)::timestamp AT TIME ZONE $5)
+           GROUP BY 1, 2, 3, 4, 5
+         )
+         SELECT origin, utm_source, utm_medium, utm_campaign, utm_content,
+                coalesce(v.visitors, 0)::text AS visitors, coalesce(p.pledges, 0)::text AS pledges,
+                coalesce(p.amount_minor, 0)::text AS amount_minor
+         FROM visits v FULL JOIN pledges p USING (origin, utm_source, utm_medium, utm_campaign, utm_content)
+         ORDER BY origin, utm_source, utm_medium, utm_campaign, utm_content`,
+        [campaignId, organizationId, from, to, zone],
+      );
+      const rows = result.rows.map((row) => ({
+        origin: row.origin,
+        utmSource: row.utm_source || null,
+        utmMedium: row.utm_medium || null,
+        utmCampaign: row.utm_campaign || null,
+        utmContent: row.utm_content || null,
+        visitors: Number(row.visitors),
+        pledges: Number(row.pledges),
+        amountMinor: Number(row.amount_minor),
+        conversion: rate(Number(row.pledges), Number(row.visitors)),
+      }));
+      const byOrigin = new Map<
+        string,
+        { visitors: number; pledges: number; amountMinor: number }
+      >();
+      for (const row of rows) {
+        const current = byOrigin.get(row.origin) ?? {
+          visitors: 0,
+          pledges: 0,
+          amountMinor: 0,
+        };
+        current.visitors += row.visitors;
+        current.pledges += row.pledges;
+        current.amountMinor += row.amountMinor;
+        byOrigin.set(row.origin, current);
+      }
+      return {
+        origins: [...byOrigin.entries()].map(([origin, row]) => ({
+          origin,
+          ...row,
+          conversion: rate(row.pledges, row.visitors),
+        })),
+        rows,
+      };
+    });
+  }
+
+  async conversionCsv(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    from: string | undefined,
+    to: string | undefined,
+  ) {
+    const { rows } = await this.conversion(
+      userId,
+      organizationId,
+      campaignId,
+      from,
+      to,
+    );
+    const header = [
+      'origen',
+      'utm_source',
+      'utm_medium',
+      'utm_campaign',
+      'utm_content',
+      'visitantes',
+      'intenciones',
+      'monto_minor',
+      'conversion',
+    ];
+    const lines = rows.map((row) =>
+      [
+        row.origin,
+        row.utmSource ?? '',
+        row.utmMedium ?? '',
+        row.utmCampaign ?? '',
+        row.utmContent ?? '',
+        row.visitors,
+        row.pledges,
+        row.amountMinor,
+        row.conversion ?? '',
+      ]
+        .map(csvCell)
+        .join(','),
+    );
+    return [header.join(','), ...lines].join('\r\n') + '\r\n';
   }
 
   async metrics(
@@ -434,4 +584,22 @@ function presentMetrics(
 function rate(part: number, whole: number) {
   if (whole <= 0) return 0;
   return Math.round((part / whole) * 10000) / 10000;
+}
+
+type ConversionRow = {
+  origin: string;
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_content: string;
+  visitors: string;
+  pledges: string;
+  amount_minor: string;
+};
+
+function csvCell(value: string | number): string {
+  let text = String(value);
+  // Evita que Excel interprete el texto como fórmula.
+  if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }

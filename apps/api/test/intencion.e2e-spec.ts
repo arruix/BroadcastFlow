@@ -172,8 +172,8 @@ async function donate(app: INestApplication<App>, slug: string, key: string) {
       donorName: 'Ana Ruiz',
       donorEmail: 'donante-intencion@example.test',
       personKind: 'individual',
+      consent: true,
     })
     .expect(201);
   return response.body as { donationId: string };
 }
-

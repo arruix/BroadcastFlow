@@ -10,9 +10,11 @@ import {
   Put,
   Query,
   Req,
+  Res,
   Sse,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Observable } from 'rxjs';
 import { AuthGuard, type AuthedRequest } from '../identidad/auth.guard';
 import { DomainException } from '../shared/domain';
@@ -32,6 +34,10 @@ export class VisitaController {
       eventType?: string;
       referrer?: string;
       utmSource?: string;
+      utmMedium?: string;
+      utmCampaign?: string;
+      utmContent?: string;
+      website?: string;
     },
     @Req() request: AuthedRequest,
   ) {
@@ -64,6 +70,44 @@ export class MedicionController {
       from,
       to,
     );
+  }
+
+  @Get('campaigns/:campaignId/conversion')
+  @UseGuards(AuthGuard)
+  conversion(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.medicion.conversion(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      from,
+      to,
+    );
+  }
+
+  @Get('campaigns/:campaignId/conversion.csv')
+  @UseGuards(AuthGuard)
+  async conversionCsv(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+    @Res() response: Response,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const file = await this.medicion.conversionCsv(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      from,
+      to,
+    );
+    response.type('text/csv').attachment('conversion.csv').send(file);
   }
 
   @Post('campaigns/:campaignId/spend')

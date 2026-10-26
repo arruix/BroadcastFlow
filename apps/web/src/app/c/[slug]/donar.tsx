@@ -1,10 +1,54 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { ApiError, explain } from "@/lib/api";
-import { sendVisit, visitId } from "./pixel";
+import { readUtm, sendVisit, visitId } from "./pixel";
+
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+
+type TurnstileApi = {
+  render: (element: HTMLElement, options: Record<string, unknown>) => string;
+  reset: (widgetId?: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: TurnstileApi;
+  }
+}
+
+// Cloudflare Turnstile; solo se carga si hay NEXT_PUBLIC_TURNSTILE_SITE_KEY.
+function useTurnstile(onToken: (token: string) => void) {
+  const container = useRef<HTMLDivElement>(null);
+  const widget = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (!turnstileSiteKey || !container.current) return;
+    const element = container.current;
+    const mount = () => {
+      if (!window.turnstile || widget.current) return;
+      widget.current = window.turnstile.render(element, {
+        sitekey: turnstileSiteKey,
+        callback: onToken,
+        "expired-callback": () => onToken(""),
+      });
+    };
+    if (window.turnstile) {
+      mount();
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.onload = mount;
+    document.head.appendChild(script);
+  }, [onToken]);
+  return {
+    container,
+    reset: () => window.turnstile?.reset(widget.current),
+  };
+}
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
 
@@ -12,7 +56,15 @@ const presetAmounts = ["10", "25", "50", "100"];
 
 // Intención de donar: registra monto, nombre, correo y visita. No se cobra nada
 // ni se piden datos de tarjeta; el cobro se habilitará con una pasarela real.
-export function Donar({ slug, currency }: { slug: string; currency: string }) {
+export function Donar({
+  slug,
+  currency,
+  noticeVersion,
+}: {
+  slug: string;
+  currency: string;
+  noticeVersion: number | null;
+}) {
   const { tx } = useTx();
   const router = useRouter();
 
@@ -21,6 +73,10 @@ export function Donar({ slug, currency }: { slug: string; currency: string }) {
   const [donorEmail, setDonorEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [message, setMessage] = useState("");
+  const [consent, setConsent] = useState(false);
+  const [website, setWebsite] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const captcha = useTurnstile(setCaptchaToken);
 
   async function submitPledge(e: FormEvent) {
     e.preventDefault();
@@ -30,6 +86,19 @@ export function Donar({ slug, currency }: { slug: string; currency: string }) {
     }
     if (!donorName.trim() || !donorEmail.trim()) {
       setMessage(tx("Por favor completa tu nombre y correo", "Please enter your name and email"));
+      return;
+    }
+    if (!consent) {
+      setMessage(
+        tx(
+          "Necesitamos que aceptes el aviso de privacidad para registrar tu intención.",
+          "Please accept the privacy notice to record your pledge."
+        )
+      );
+      return;
+    }
+    if (turnstileSiteKey && !captchaToken) {
+      setMessage(tx("Completa la verificación anti-spam.", "Please complete the anti-spam check."));
       return;
     }
     setMessage("");
@@ -49,6 +118,12 @@ export function Donar({ slug, currency }: { slug: string; currency: string }) {
           donorEmail,
           personKind: "individual",
           visitAnonymousId: visitId(),
+          referrer: document.referrer || undefined,
+          ...readUtm(),
+          consent: true,
+          noticeVersion: noticeVersion ?? undefined,
+          captchaToken: captchaToken || undefined,
+          website,
         }),
       });
       const body = (await response.json().catch(() => ({}))) as { code?: string; donationId?: string };
@@ -58,6 +133,8 @@ export function Donar({ slug, currency }: { slug: string; currency: string }) {
       router.push(`/c/${slug}/recibo/${body.donationId}`);
     } catch (error) {
       setIsSending(false);
+      setCaptchaToken("");
+      captcha.reset();
       setMessage(explain(error));
     }
   }
@@ -130,12 +207,47 @@ export function Donar({ slug, currency }: { slug: string; currency: string }) {
           />
         </label>
 
+        {/* Campo trampa anti-spam: oculto para personas y lectores de pantalla. */}
+        <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+          <label>
+            Website
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+            />
+          </label>
+        </div>
+
+        <label className="flex items-start gap-2 text-xs text-slate-700">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            required
+          />
+          <span>
+            {tx(
+              "He leído y acepto el aviso de privacidad de esta campaña",
+              "I have read and accept this campaign's privacy notice"
+            )}{" "}
+            (<a className="underline" href="#aviso">{tx("ver aviso", "view notice")}</a>
+            {noticeVersion ? ` · v${noticeVersion}` : ""}).
+          </span>
+        </label>
+
+        {turnstileSiteKey ? <div ref={captcha.container} /> : null}
+
         {message ? <p className="text-xs text-rose-600 font-medium">{message}</p> : null}
 
         <button
           className="mt-2 min-h-12 rounded-xl bg-indigo-600 px-4 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 disabled:opacity-70 transition"
           type="submit"
-          disabled={isSending}
+          disabled={isSending || !consent}
         >
           {isSending ? tx("Registrando...", "Saving...") : tx("Registrar mi intención de donar", "Record my pledge")}
         </button>

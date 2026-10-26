@@ -27,6 +27,9 @@ const sourceNames: Record<string, VisitOrigin> = {
 const previewAgent =
   /facebookexternalhit|facebot|twitterbot|tiktokspider|linkedinbot|slackbot|whatsapp|telegrambot|discordbot|embedly|pinterestbot/i;
 const botAgent = /bot|spider|crawler|preview/i;
+// Navegadores automatizados, clientes HTTP y monitores: no son personas.
+const automationAgent =
+  /headless|phantomjs|selenium|webdriver|puppeteer|playwright|cypress|lighthouse|pagespeed|gtmetrix|pingdom|uptime|datadog|newrelic|statuscake|monitor|curl\/|wget|python-requests|python-urllib|python\/|aiohttp|httpx|scrapy|go-http-client|okhttp|java\/|apache-httpclient|libwww|node-fetch|undici|axios|got \(|postman|insomnia|httpie|feedfetcher|scraper/i;
 
 export function visitOrigin(
   utmSource: string | undefined,
@@ -77,7 +80,7 @@ export function visitExclusion(
   const agent = (userAgent ?? '').trim();
   if (!agent) return 'missing_ua';
   if (previewAgent.test(agent)) return 'preview_ua';
-  if (botAgent.test(agent)) return 'bot';
+  if (botAgent.test(agent) || automationAgent.test(agent)) return 'bot';
   return null;
 }
 

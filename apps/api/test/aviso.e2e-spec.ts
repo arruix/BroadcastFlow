@@ -278,6 +278,7 @@ function donationBody() {
     donorName: 'Ana Ruiz',
     donorEmail: 'donante@example.test',
     personKind: 'individual',
+    consent: true,
   };
 }
 

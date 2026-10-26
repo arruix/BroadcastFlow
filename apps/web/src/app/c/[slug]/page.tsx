@@ -13,6 +13,7 @@ type PublicCampaign = {
   donateEnabled: boolean;
   share: { title: string; description: string; imageKey: string | null } | null;
   notice: {
+    version?: number;
     controller: string;
     purpose: string;
     dataCategories: string;
@@ -22,6 +23,7 @@ type PublicCampaign = {
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
 async function loadCampaign(slug: string): Promise<PublicCampaign | null> {
   const response = await fetch(`${apiUrl}/public/campaigns/${slug}`, { cache: "no-store" });
@@ -33,14 +35,29 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const campaign = await loadCampaign(slug);
   if (!campaign) return {};
-  const image = campaign.share?.imageKey?.startsWith("https://") ? campaign.share.imageKey : undefined;
+  const title = campaign.share?.title ?? campaign.name;
+  const description = campaign.share?.description ?? undefined;
+  const url = `${siteUrl}/c/${campaign.slug}`;
+  const image = campaign.share?.imageKey?.startsWith("https://")
+    ? campaign.share.imageKey
+    : `${siteUrl}/og-default.png`;
   return {
-    title: campaign.share?.title ?? campaign.name,
-    description: campaign.share?.description ?? undefined,
+    metadataBase: new URL(siteUrl),
+    title,
+    description,
+    alternates: { canonical: url },
     openGraph: {
-      title: campaign.share?.title ?? campaign.name,
-      description: campaign.share?.description ?? undefined,
-      images: image ? [image] : undefined,
+      type: "website",
+      url,
+      title,
+      description,
+      images: [{ url: image, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [image],
     },
   };
 }
@@ -105,7 +122,7 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
           </div>
         </div>
         {campaign.notice ? (
-          <article className="flex flex-col gap-2 rounded border p-5">
+          <article id="aviso" className="flex flex-col gap-2 rounded border p-5">
             <h2 className="text-2xl">{tx("Aviso de privacidad", "Privacy notice")}</h2>
             <p>{tx("Responsable", "Controller")}: {campaign.notice.controller}</p>
             <p>{tx("Finalidad", "Purpose")}: {campaign.notice.purpose}</p>
@@ -117,7 +134,7 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
         )}
       </section>
       <section className="panel flex flex-col gap-4 p-5 lg:sticky lg:top-6">
-        {campaign.donateEnabled ? <Donar slug={campaign.slug} currency={campaign.currency} /> : null}
+        {campaign.donateEnabled ? <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} /> : null}
         {campaign.status === "pausada" ? <p>{tx("La página está en pausa.", "The page is paused.")}</p> : null}
         {campaign.notice && !campaign.donateEnabled && campaign.status !== "pausada" ? (
           <p>{tx("Donar se enciende cuando la campaña está activa.", "Donate turns on when the campaign is active.")}</p>

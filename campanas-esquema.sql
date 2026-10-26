@@ -396,7 +396,17 @@ CREATE TABLE donation (
   provider_payment_id text,
   card_brand text,
   card_last4 char(4),
+  origin text CHECK (origin IS NULL OR origin IN (
+    'facebook', 'instagram', 'tiktok', 'youtube', 'x', 'linkedin', 'direct', 'other'
+  )),
+  utm_source text CHECK (utm_source IS NULL OR length(utm_source) <= 100),
+  utm_medium text CHECK (utm_medium IS NULL OR length(utm_medium) <= 100),
+  utm_campaign text CHECK (utm_campaign IS NULL OR length(utm_campaign) <= 100),
+  utm_content text CHECK (utm_content IS NULL OR length(utm_content) <= 100),
+  consent_notice_version integer CHECK (consent_notice_version IS NULL OR consent_notice_version > 0),
+  consented_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT donation_consent_pair CHECK ((consent_notice_version IS NULL) = (consented_at IS NULL)),
   CONSTRAINT donation_page_same_campaign CHECK (donation_page_campaign_id = campaign_id),
   CONSTRAINT donation_balances CHECK (
     gross_minor = net_minor + processor_fee_minor + platform_fee_minor
@@ -477,6 +487,10 @@ CREATE TABLE visit_event (
   exclude_reason text CHECK (exclude_reason IS NULL OR exclude_reason IN (
     'preview_ua', 'reload_30m', 'missing_ua', 'bot'
   )),
+  utm_source text CHECK (utm_source IS NULL OR length(utm_source) <= 100),
+  utm_medium text CHECK (utm_medium IS NULL OR length(utm_medium) <= 100),
+  utm_campaign text CHECK (utm_campaign IS NULL OR length(utm_campaign) <= 100),
+  utm_content text CHECK (utm_content IS NULL OR length(utm_content) <= 100),
   occurred_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT visit_reason_matches_counted CHECK (
     (counted AND exclude_reason IS NULL) OR (NOT counted AND exclude_reason IS NOT NULL)
@@ -717,7 +731,11 @@ CREATE OR REPLACE FUNCTION record_visit(
   p_device_class text,
   p_counted boolean,
   p_exclude_reason text,
-  p_event_type text
+  p_event_type text,
+  p_utm_source text DEFAULT NULL,
+  p_utm_medium text DEFAULT NULL,
+  p_utm_campaign text DEFAULT NULL,
+  p_utm_content text DEFAULT NULL
 ) RETURNS uuid
 LANGUAGE plpgsql AS $$
 DECLARE
@@ -726,10 +744,10 @@ DECLARE
 BEGIN
   INSERT INTO visit_event (
     organization_id, campaign_id, anonymous_id, origin, event_type, postal_code, browser,
-    device_class, counted, exclude_reason
+    device_class, counted, exclude_reason, utm_source, utm_medium, utm_campaign, utm_content
   ) VALUES (
     p_organization_id, p_campaign_id, p_anonymous_id, p_origin, p_event_type, p_postal_code, p_browser,
-    p_device_class, p_counted, p_exclude_reason
+    p_device_class, p_counted, p_exclude_reason, p_utm_source, p_utm_medium, p_utm_campaign, p_utm_content
   ) RETURNING id INTO v_id;
 
   IF p_counted THEN
@@ -742,10 +760,10 @@ BEGIN
 END $$;
 
 REVOKE ALL ON FUNCTION record_visit(
-  uuid, uuid, uuid, text, text, text, text, boolean, text, text
+  uuid, uuid, uuid, text, text, text, text, boolean, text, text, text, text, text, text
 ) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION record_visit(
-  uuid, uuid, uuid, text, text, text, text, boolean, text, text
+  uuid, uuid, uuid, text, text, text, text, boolean, text, text, text, text, text, text
 ) TO app_worker;
 
 -- RLS. app_worker la salta. app_api no.

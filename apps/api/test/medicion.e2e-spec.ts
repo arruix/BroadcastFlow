@@ -207,6 +207,7 @@ describe('historia 10', () => {
         donorName: 'Ana Ruiz',
         donorEmail: 'donante-medida@example.test',
         personKind: 'individual',
+        consent: true,
         visitAnonymousId: anonymousId,
       })
       .expect(201);

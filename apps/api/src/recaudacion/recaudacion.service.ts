@@ -5,7 +5,10 @@ import { LibroService } from '../libro/libro.service';
 import { signWebhook } from '../shared/crypto';
 import { DomainException } from '../shared/domain';
 import { splitDonation } from '../shared/fees';
+import { visitOrigin } from '../medicion/origin';
+import { rejectHoneypot, requireCaptcha } from '../shared/anti-spam';
 import { tooMany } from '../shared/rate-limit';
+import { readUtm } from '../shared/utm';
 import { cleanText } from '../shared/text';
 
 export type DonationInput = {
@@ -15,6 +18,15 @@ export type DonationInput = {
   donorEmail?: string;
   personKind?: string;
   visitAnonymousId?: string;
+  referrer?: string;
+  utmSource?: string;
+  utmMedium?: string;
+  utmCampaign?: string;
+  utmContent?: string;
+  consent?: boolean;
+  noticeVersion?: number;
+  captchaToken?: string;
+  website?: string;
 };
 
 const fiscalReceipt = false;
@@ -131,8 +143,13 @@ export class RecaudacionService {
     idempotencyKey: string | undefined,
     ip: string,
   ) {
-    if (tooMany(`donation:${ip}:${slug}`))
+    if (tooMany(`donation:${ip}:${slug}`, 10))
       throw new DomainException('rate_limited', 429);
+    rejectHoneypot(input.website);
+    if (input.consent !== true)
+      throw new DomainException('consent_required', 422);
+    await requireCaptcha(input.captchaToken, ip);
+    const utm = readUtm(input);
     if (!idempotencyKey || idempotencyKey.trim().length < 8)
       throw new DomainException('idempotency_required', 422);
     const key = idempotencyKey.trim().slice(0, 200);
@@ -162,10 +179,11 @@ export class RecaudacionService {
         donations_enabled: boolean;
         platform_fee_bps: number;
         notice_id: string | null;
+        notice_version: number | null;
         page_campaign_id: string | null;
       }>(
         `SELECT c.id, c.organization_id, c.status, c.kind, c.currency, p.donations_enabled, p.platform_fee_bps,
-                n.id AS notice_id, d.campaign_id AS page_campaign_id
+                n.id AS notice_id, n.version AS notice_version, d.campaign_id AS page_campaign_id
          FROM campaign c
          JOIN subscription s ON s.organization_id = c.organization_id
          JOIN plan p ON p.id = s.plan_id
@@ -176,8 +194,14 @@ export class RecaudacionService {
       );
       const campaign = found.rows[0];
       if (!campaign) throw new NotFoundException();
-      if (!campaign.notice_id)
+      if (!campaign.notice_id || !campaign.notice_version)
         throw new DomainException('notice_required', 422);
+      // El consentimiento se da a una versión concreta del aviso.
+      if (
+        input.noticeVersion !== undefined &&
+        Number(input.noticeVersion) !== campaign.notice_version
+      )
+        throw new DomainException('notice_changed', 409);
       if (
         campaign.kind === 'comercial' ||
         !campaign.page_campaign_id ||
@@ -204,12 +228,27 @@ export class RecaudacionService {
       )
         ? input.visitAnonymousId
         : null;
+      let origin: string | null = utm.source
+        ? visitOrigin(utm.source, undefined)
+        : null;
+      if (!origin && visitAnonymousId) {
+        const firstVisit = await db.query<{ origin: string }>(
+          `SELECT origin FROM visit_event
+           WHERE campaign_id = $1 AND anonymous_id = $2 AND counted
+           ORDER BY occurred_at LIMIT 1`,
+          [campaign.id, visitAnonymousId],
+        );
+        origin = firstVisit.rows[0]?.origin ?? null;
+      }
+      origin ??= visitOrigin(undefined, input.referrer);
       const inserted = await db.query<{ id: string }>(
         `INSERT INTO donation (
            organization_id, campaign_id, donation_page_campaign_id, privacy_notice_id, idempotency_key,
            status, gross_minor, net_minor, processor_fee_minor, platform_fee_minor, currency,
-           donor_name, donor_email, visit_anonymous_id
-         ) VALUES ($1,$2,$2,$3,$4,'pendiente',$5,$6,$7,$8,$9,$10,$11,$12)
+           donor_name, donor_email, visit_anonymous_id,
+           origin, utm_source, utm_medium, utm_campaign, utm_content,
+           consent_notice_version, consented_at
+         ) VALUES ($1,$2,$2,$3,$4,'pendiente',$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,now())
          RETURNING id`,
         [
           campaign.organization_id,
@@ -224,6 +263,12 @@ export class RecaudacionService {
           donorName,
           donorEmail,
           visitAnonymousId,
+          origin,
+          utm.source,
+          utm.medium,
+          utm.campaign,
+          utm.content,
+          campaign.notice_version,
         ],
       );
       return pending(inserted.rows[0].id, campaign.notice_id);

@@ -448,6 +448,7 @@ async function donate(
       donorName: 'Ana Ruiz',
       donorEmail: 'donante-libro@example.test',
       personKind: 'individual',
+      consent: true,
     })
     .expect(201);
   return response.body as { donationId: string };
