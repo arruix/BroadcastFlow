@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { demoMode } from "@/lib/demo";
 import { notFound } from "next/navigation";
 import { Idioma } from "@/lib/i18n";
 import { pick, serverLocale } from "@/lib/locale";
@@ -106,6 +107,7 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
             <video className="w-full rounded-xl bg-slate-950 shadow-md" controls src={campaign.live.playbackUrl} />
           </figure>
         ) : null}
+        {demoMode ? null : (
         <div className="flex items-start gap-3.5 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/90 via-violet-50/70 to-purple-50/90 p-4 text-slate-800 shadow-2xs">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -124,6 +126,7 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
             </p>
           </div>
         </div>
+        )}
         {campaign.notice ? (
           <article id="aviso" className="flex flex-col gap-2 rounded border p-5">
             <h2 className="text-2xl">{tx("Aviso de privacidad", "Privacy notice")}</h2>

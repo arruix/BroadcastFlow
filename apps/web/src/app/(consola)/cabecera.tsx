@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { demoMode } from "@/lib/demo";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { fill, Idioma, useI18n } from "@/lib/i18n";
@@ -172,7 +173,7 @@ export function Cabecera({ onMenu }: { onMenu: () => void }) {
               <div className="account-panel" role="menu" aria-label={t.header.accountBare}>
                 <p className="account-email">{email || t.header.accountBare}</p>
                 <Link role="menuitem" href="/seguridad" onClick={() => setAccountOpen(false)}>{t.nav.security}</Link>
-                <Link role="menuitem" href="/conexiones" onClick={() => setAccountOpen(false)}>{t.nav.connections}</Link>
+                {demoMode ? null : <Link role="menuitem" href="/conexiones" onClick={() => setAccountOpen(false)}>{t.nav.connections}</Link>}
                 <button role="menuitem" type="button" onClick={signOut}>{t.nav.signOut}</button>
               </div>
             ) : null}

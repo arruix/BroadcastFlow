@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { demoMode, visibleInDemo } from "@/lib/demo";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Cabecera } from "./cabecera";
@@ -206,12 +207,11 @@ function NavIcon({ id }: { id: string }) {
       <nav className={open ? "rail is-open" : "rail"} aria-label={t.nav.console}>
         <div className="mb-4 flex items-center justify-between gap-2 px-2">
           <Link className="brand group" href="/tablero">
-            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25 transition-transform group-hover:scale-105" aria-hidden="true">
-              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856a9.75 9.75 0 0 1 13.788 0M12 18.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" />
-              </svg>
+            <img className="h-8 w-8 rounded-xl transition-transform group-hover:scale-105" src="/marca-broadcastflow-64.svg" alt="" width={32} height={32} />
+            <span className="rail-label flex flex-col leading-tight">
+              <span className="font-bold text-slate-900 tracking-tight">BroadcastFlow</span>
+              <span className="brand-by">by Mezkit Studios</span>
             </span>
-            <span className="rail-label font-bold text-slate-900 tracking-tight">BroadcastFlow</span>
           </Link>
           <button className="rail-collapse hover:bg-slate-100 transition-colors" type="button" aria-label={t.nav.hide} onClick={onCollapse}>
             <svg className="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
@@ -219,7 +219,7 @@ function NavIcon({ id }: { id: string }) {
             </svg>
           </button>
         </div>
-        {entries.map((entry) => {
+        {entries.filter((entry) => visibleInDemo(entry.id)).map((entry) => {
           const href = entry.path(campaignId);
           return (
             <Link key={entry.id} className="rail-link" href={href} aria-current={current(entry.id) ? "page" : undefined} title={t.nav[entry.id]}>
@@ -303,10 +303,12 @@ function Lugar() {
         <Link className="chip" href={`/campanas/${campaignId}/pieza`}>{t.nav.pieces}</Link>
         <Link className="chip" href={`/campanas/${campaignId}`}>{t.nav.notices}</Link>
         <Link className="chip" href={`/campanas/${campaignId}/libro`}>{t.dash.ledger}</Link>
-        <Link className="chip text-rose-600 border-rose-200 hover:bg-rose-50" href={`/campanas/${campaignId}/en-vivo`}>
-          <span className="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5 animate-pulse" />
-          Live
-        </Link>
+        {demoMode ? null : (
+          <Link className="chip text-rose-600 border-rose-200 hover:bg-rose-50" href={`/campanas/${campaignId}/en-vivo`}>
+            <span className="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5 animate-pulse" />
+            Live
+          </Link>
+        )}
         {campaign.slug ? <Link className="chip" href={`/c/${campaign.slug}`}>{t.header.publicPage}</Link> : null}
       </nav>
     </div>

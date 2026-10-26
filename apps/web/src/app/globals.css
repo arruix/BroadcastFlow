@@ -1,20 +1,27 @@
 @import "tailwindcss";
 
 :root {
-  --paper: #f8fafc;
-  --ink: #0f172a;
-  --muted: #64748b;
-  --line: #e2e8f0;
+  /* Marca BroadcastFlow (propuesta de B; pendiente de aprobación final). */
+  --brand: #2bb3a3; /* Turquesa: rellenos con texto Carbón, íconos */
+  --brand-ink: #1e1e24; /* Carbón: texto y fondos oscuros */
+  --sand: #e9dcc3; /* Arena: fondos claros */
+  --flower: #d6336c; /* Magenta Flor: solo donativos */
+  --mezkit: #2f6b4f; /* Verde Mezkit: solo "by Mezkit Studios" */
+  --paper: #f6f1e7;
+  --ink: #1e1e24;
+  --muted: #5b5b66;
+  --line: #ddd2bd;
   --card: #ffffff;
-  --accent: #4f46e5;
-  --accent-hover: #4338ca;
+  /* Turquesa oscurecido para texto blanco o texto sobre claro: 5.2:1 (AA). */
+  --accent: #1b7a70;
+  --accent-hover: #16695f;
   --accent-ink: #ffffff;
-  --accent-strong: #4338ca;
-  --accent-strong-hover: #3730a3;
-  --donate: #be185d;
-  --donate-hover: #9d174d;
-  --accent-soft: rgba(79, 70, 229, 0.08);
-  --accent-glow: 0 0 24px rgba(79, 70, 229, 0.25);
+  --accent-strong: #1b7a70;
+  --accent-strong-hover: #12554d;
+  --accent-soft: rgba(43, 179, 163, 0.12);
+  --accent-glow: 0 0 24px rgba(43, 179, 163, 0.3);
+  --donate: #d6336c;
+  --donate-hover: #b02a59;
   --live: #ef4444;
   --success: #10b981;
 }
@@ -24,11 +31,37 @@
   --color-foreground: var(--ink);
 }
 
+/* Las utilidades indigo/violet/purple heredadas usan la escala turquesa de la marca;
+   600+ cumple AA con texto blanco y como texto sobre fondo claro. */
+@theme {
+  --color-indigo-50: #eaf7f5;
+  --color-indigo-100: #cfefea;
+  --color-indigo-200: #a3e0d8;
+  --color-indigo-300: #6fcdc1;
+  --color-indigo-400: #45bfb0;
+  --color-indigo-500: #2bb3a3;
+  --color-indigo-600: #1b7a70;
+  --color-indigo-700: #16695f;
+  --color-indigo-800: #12554d;
+  --color-indigo-900: #0e423c;
+  --color-indigo-950: #0a2e2a;
+  --color-violet-50: #eaf7f5;
+  --color-violet-100: #cfefea;
+  --color-violet-500: #2bb3a3;
+  --color-violet-600: #1b7a70;
+  --color-purple-50: #f6f1e7;
+  --color-purple-500: #2bb3a3;
+  --color-slate-500: #5b5b66;
+  --color-slate-600: #4a4a53;
+  --color-slate-900: #1e1e24;
+  --color-neutral-900: #1e1e24;
+}
+
 body {
   background:
-    radial-gradient(1200px 500px at 85% -50px, rgba(99, 102, 241, 0.07) 0%, transparent 60%),
-    radial-gradient(1000px 400px at 15% 100px, rgba(59, 130, 246, 0.05) 0%, transparent 50%),
-    radial-gradient(600px 300px at 50% 600px, rgba(168, 85, 247, 0.03) 0%, transparent 60%),
+    radial-gradient(1200px 500px at 85% -50px, rgba(43, 179, 163, 0.08) 0%, transparent 60%),
+    radial-gradient(1000px 400px at 15% 100px, rgba(233, 220, 195, 0.5) 0%, transparent 50%),
+    radial-gradient(600px 300px at 50% 600px, rgba(43, 179, 163, 0.03) 0%, transparent 60%),
     var(--paper);
   color: var(--ink);
   font-family: var(--font-sans), system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -59,8 +92,8 @@ a:not(.bg-neutral-900):not(.rounded):not(.chip):not(.rail-link):hover {
 }
 
 ::selection {
-  background: #c7d2fe;
-  color: #1e1b4b;
+  background: #a3e0d8;
+  color: #1e1e24;
 }
 
 .eyebrow {
@@ -1616,4 +1649,10 @@ a.header-create:focus-visible {
   .medicion-totales {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
+}
+
+.brand-by {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mezkit);
 }
