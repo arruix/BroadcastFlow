@@ -40,7 +40,7 @@ export function readUtm(): Utm {
   }
 }
 
-export function sendVisit(slug: string, eventType: "view" | "click") {
+export function sendVisit(slug: string, eventType: "view" | "click" | "pay_link" | "pay_transfer") {
   void fetch(`${apiUrl}/public/campaigns/${slug}/visits`, {
     method: "POST",
     headers: { "content-type": "application/json" },

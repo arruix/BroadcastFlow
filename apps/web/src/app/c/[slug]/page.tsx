@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Idioma } from "@/lib/i18n";
 import { pick, serverLocale } from "@/lib/locale";
+import { MetodoPago, type PaymentMethod } from "./metodo-pago";
 import { Donar } from "./donar";
 import { Pixel } from "./pixel";
 
@@ -11,6 +12,7 @@ type PublicCampaign = {
   status: string;
   currency: string;
   donateEnabled: boolean;
+  paymentMethod: PaymentMethod | null;
   share: { title: string; description: string; imageKey: string | null } | null;
   notice: {
     version?: number;
@@ -78,6 +80,7 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
     );
   }
   const campaign = (await response.json()) as PublicCampaign;
+  const hasExternal = Boolean(campaign.paymentMethod?.link || campaign.paymentMethod?.transfer);
 
   return (
     <main className="mx-auto grid min-h-screen max-w-5xl items-start gap-8 px-4 py-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -134,7 +137,14 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
         )}
       </section>
       <section className="panel flex flex-col gap-4 p-5 lg:sticky lg:top-6">
-        {campaign.donateEnabled ? <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} /> : null}
+        {campaign.donateEnabled && hasExternal ? <MetodoPago slug={campaign.slug} method={campaign.paymentMethod!} /> : null}
+        {campaign.donateEnabled && hasExternal ? (
+          <details>
+            <summary>{tx("¿Solo quieres registrar tu intención de donar?", "Just want to register your intent to donate?")}</summary>
+            <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} />
+          </details>
+        ) : null}
+        {campaign.donateEnabled && !hasExternal ? <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} /> : null}
         {campaign.status === "pausada" ? <p>{tx("La página está en pausa.", "The page is paused.")}</p> : null}
         {campaign.notice && !campaign.donateEnabled && campaign.status !== "pausada" ? (
           <p>{tx("Donar se enciende cuando la campaña está activa.", "Donate turns on when the campaign is active.")}</p>

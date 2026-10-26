@@ -9,6 +9,10 @@ import { visitOrigin } from '../medicion/origin';
 import { rejectHoneypot, requireCaptcha } from '../shared/anti-spam';
 import { tooMany } from '../shared/rate-limit';
 import { readUtm } from '../shared/utm';
+import {
+  type PaymentColumns,
+  presentPaymentMethod,
+} from '../shared/payment-method';
 import { cleanText } from '../shared/text';
 
 export type DonationInput = {
@@ -62,27 +66,30 @@ export class RecaudacionService {
 
   async readPublic(slug: string) {
     const found = await this.db.asWorker((db) =>
-      db.query<{
-        name: string;
-        slug: string;
-        status: string;
-        kind: string;
-        currency: string;
-        donations_enabled: boolean;
-        page_campaign_id: string | null;
-        notice_id: string | null;
-        version: number | null;
-        controller: string | null;
-        purpose: string | null;
-        data_categories: string | null;
-        retention: string | null;
-        published_at: Date | null;
-        share_title: string | null;
-        share_description: string | null;
-        image_key: string | null;
-        live_id: string | null;
-      }>(
+      db.query<
+        {
+          name: string;
+          slug: string;
+          status: string;
+          kind: string;
+          currency: string;
+          donations_enabled: boolean;
+          page_campaign_id: string | null;
+          notice_id: string | null;
+          version: number | null;
+          controller: string | null;
+          purpose: string | null;
+          data_categories: string | null;
+          retention: string | null;
+          published_at: Date | null;
+          share_title: string | null;
+          share_description: string | null;
+          image_key: string | null;
+          live_id: string | null;
+        } & PaymentColumns
+      >(
         `SELECT c.name, c.slug, c.status, c.kind, c.currency, p.donations_enabled,
+                c.payment_link_url, c.transfer_bank, c.transfer_holder, c.transfer_clabe, c.transfer_reference,
                 d.campaign_id AS page_campaign_id,
                 n.id AS notice_id, n.version, n.controller, n.purpose, n.data_categories, n.retention, n.published_at,
                 sh.title AS share_title, sh.description AS share_description, sh.image_key,
@@ -126,6 +133,9 @@ export class RecaudacionService {
         row.donations_enabled,
       ),
       notice,
+      // Solo se publica con la campaña activa y el aviso vigente.
+      paymentMethod:
+        notice && row.status === 'activa' ? presentPaymentMethod(row) : null,
       share: row.share_title
         ? {
             title: row.share_title,

@@ -24,7 +24,7 @@ type Metrics = {
   series: { day: string; views: number; clicks: number }[];
 };
 type Conversion = {
-  origins: { origin: string; visitors: number; pledges: number; amountMinor: number; conversion: number }[];
+  origins: { origin: string; visitors: number; pledges: number; amountMinor: number; conversion: number; payLinkClicks: number; payTransferViews: number }[];
   rows: {
     origin: string;
     utmSource: string | null;
@@ -34,6 +34,8 @@ type Conversion = {
     visitors: number;
     pledges: number;
     conversion: number;
+    payLinkClicks: number;
+    payTransferViews: number;
   }[];
 };
 type Spend = { id: string; network: string; amountMinor: number; closed: boolean };
@@ -313,6 +315,8 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
                 <th>{tx("Intenciones", "Pledges")}</th>
                 <th>{tx("Conversión", "Conversion")}</th>
                 <th>{tx("Monto", "Amount")}</th>
+                <th>{tx("Clics enlace de pago", "Payment link clicks")}</th>
+                <th>{tx("Vistas transferencia", "Transfer views")}</th>
               </tr>
             </thead>
             <tbody>
@@ -323,6 +327,8 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
                   <td>{row.pledges}</td>
                   <td>{percent(row.conversion)}</td>
                   <td>{(row.amountMinor / 100).toFixed(2)}</td>
+                  <td>{row.payLinkClicks}</td>
+                  <td>{row.payTransferViews}</td>
                 </tr>
               ))}
             </tbody>
@@ -338,6 +344,8 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
                   <th>{tx("Visitantes", "Visitors")}</th>
                   <th>{tx("Intenciones", "Pledges")}</th>
                   <th>{tx("Conversión", "Conversion")}</th>
+                  <th>{tx("Clics enlace de pago", "Payment link clicks")}</th>
+                  <th>{tx("Vistas transferencia", "Transfer views")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -350,6 +358,8 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
                     <td>{row.visitors}</td>
                     <td>{row.pledges}</td>
                     <td>{percent(row.conversion)}</td>
+                    <td>{row.payLinkClicks}</td>
+                    <td>{row.payTransferViews}</td>
                   </tr>
                 ))}
               </tbody>

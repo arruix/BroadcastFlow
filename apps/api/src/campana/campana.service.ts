@@ -1,7 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { DbService } from '../db/db.service';
 import { DomainException, mapDbError } from '../shared/domain';
+import {
+  hasPaymentFields,
+  normalizePaymentMethod,
+  type PaymentColumns,
+  type PaymentMethodInput,
+  presentPaymentMethod,
+} from '../shared/payment-method';
 import { assertWritable } from '../shared/subscription';
+
+const columns = `id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
+  time_zone, starts_on, ends_on, status, slug, store_url,
+  payment_link_url, transfer_bank, transfer_holder, transfer_clabe, transfer_reference`;
 
 export type CampaignInput = {
   name?: string;
@@ -15,7 +26,7 @@ export type CampaignInput = {
   endsOn?: string;
   slug?: string;
   storeUrl?: string | null;
-};
+} & PaymentMethodInput;
 
 type CampaignRow = {
   id: string;
@@ -31,7 +42,7 @@ type CampaignRow = {
   status: string;
   slug: string;
   store_url: string | null;
-};
+} & PaymentColumns;
 
 @Injectable()
 export class CampanaService {
@@ -41,8 +52,7 @@ export class CampanaService {
     await this.member(userId, organizationId);
     const rows = await this.db.asUser(userId, (db) =>
       db.query<CampaignRow>(
-        `SELECT id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-                time_zone, starts_on, ends_on, status, slug, store_url
+        `SELECT ${columns}
          FROM campaign WHERE organization_id = $1 ORDER BY created_at`,
         [organizationId],
       ),
@@ -66,10 +76,10 @@ export class CampanaService {
           const inserted = await db.query<CampaignRow>(
             `INSERT INTO campaign (
                organization_id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-               time_zone, starts_on, ends_on, status, slug, store_url
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'borrador',$11,$12)
-             RETURNING id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-                       time_zone, starts_on, ends_on, status, slug, store_url`,
+               time_zone, starts_on, ends_on, status, slug, store_url,
+               payment_link_url, transfer_bank, transfer_holder, transfer_clabe, transfer_reference
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'borrador',$11,$12,$13,$14,$15,$16,$17)
+             RETURNING ${columns}`,
             [
               target,
               fields.name,
@@ -83,6 +93,7 @@ export class CampanaService {
               fields.endsOn,
               slug,
               fields.storeUrl,
+              ...paymentValues(fields.payment),
             ],
           );
           return present(inserted.rows[0]);
@@ -106,8 +117,7 @@ export class CampanaService {
         db.query<CampaignRow>(
           `UPDATE campaign SET status = 'activa'
            WHERE id = $1 AND organization_id = $2 AND status = 'borrador'
-           RETURNING id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-                     time_zone, starts_on, ends_on, status, slug, store_url`,
+           RETURNING ${columns}`,
           [campaignId, organizationId],
         ),
       );
@@ -142,10 +152,14 @@ export class CampanaService {
           `UPDATE campaign SET
              name = $3, goal_minor = $4, currency = $5, kind = $6, jurisdiction = $7,
              jurisdiction_policy_id = $8, time_zone = $9, starts_on = $10, ends_on = $11,
-             slug = $12, store_url = $13
+             slug = $12, store_url = $13,
+             payment_link_url = CASE WHEN $14 THEN $15 ELSE payment_link_url END,
+             transfer_bank = CASE WHEN $14 THEN $16 ELSE transfer_bank END,
+             transfer_holder = CASE WHEN $14 THEN $17 ELSE transfer_holder END,
+             transfer_clabe = CASE WHEN $14 THEN $18 ELSE transfer_clabe END,
+             transfer_reference = CASE WHEN $14 THEN $19 ELSE transfer_reference END
            WHERE id = $1 AND organization_id = $2
-           RETURNING id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-                     time_zone, starts_on, ends_on, status, slug, store_url`,
+           RETURNING ${columns}`,
           [
             campaignId,
             organizationId,
@@ -160,11 +174,43 @@ export class CampanaService {
             fields.endsOn,
             fields.slug,
             fields.storeUrl,
+            hasPaymentFields(input),
+            ...paymentValues(fields.payment),
           ],
         ),
       );
       return present(updated.rows[0]);
     } catch (error) {
+      mapDbError(error);
+    }
+  }
+
+  // Método de pago externo: editable en cualquier estado, solo owner/admin.
+  async setPaymentMethod(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    input: PaymentMethodInput,
+  ) {
+    const role = await this.role(userId, organizationId);
+    if (role !== 'owner' && role !== 'admin')
+      throw new DomainException('forbidden', 403);
+    await assertWritable(this.db, userId, organizationId);
+    const payment = normalizePaymentMethod(input ?? {});
+    try {
+      const updated = await this.db.asUser(userId, (db) =>
+        db.query<CampaignRow>(
+          `UPDATE campaign SET payment_link_url = $3, transfer_bank = $4, transfer_holder = $5,
+             transfer_clabe = $6, transfer_reference = $7
+           WHERE id = $1 AND organization_id = $2
+           RETURNING ${columns}`,
+          [campaignId, organizationId, ...paymentValues(payment)],
+        ),
+      );
+      if (!updated.rowCount) throw new DomainException('forbidden', 403);
+      return present(updated.rows[0]);
+    } catch (error) {
+      if (error instanceof DomainException) throw error;
       mapDbError(error);
     }
   }
@@ -217,10 +263,10 @@ export class CampanaService {
           const inserted = await db.query<CampaignRow>(
             `INSERT INTO campaign (
                organization_id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-               time_zone, starts_on, ends_on, status, slug, store_url
-             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'borrador',$11,$12)
-             RETURNING id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
-                       time_zone, starts_on, ends_on, status, slug, store_url`,
+               time_zone, starts_on, ends_on, status, slug, store_url,
+               payment_link_url, transfer_bank, transfer_holder, transfer_clabe, transfer_reference
+             ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'borrador',$11,$12,$13,$14,$15,$16,$17)
+             RETURNING ${columns}`,
             [
               organizationId,
               fields.name,
@@ -234,6 +280,7 @@ export class CampanaService {
               fields.endsOn,
               slug,
               fields.storeUrl,
+              ...paymentValues(fields.payment),
             ],
           );
           return present(inserted.rows[0]);
@@ -277,7 +324,18 @@ function present(row: CampaignRow) {
     status: row.status,
     slug: row.slug,
     storeUrl: row.store_url,
+    paymentMethod: presentPaymentMethod(row),
   };
+}
+
+function paymentValues(payment: ReturnType<typeof normalizePaymentMethod>) {
+  return [
+    payment.paymentLinkUrl,
+    payment.transferBank,
+    payment.transferHolder,
+    payment.transferClabe,
+    payment.transferReference,
+  ];
 }
 
 function normalize(input: CampaignInput, currentSlug: string | undefined) {
@@ -320,6 +378,7 @@ function normalize(input: CampaignInput, currentSlug: string | undefined) {
     endsOn: input.endsOn || null,
     slug,
     storeUrl,
+    payment: normalizePaymentMethod(input),
   };
 }
 

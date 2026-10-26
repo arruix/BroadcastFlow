@@ -16,6 +16,7 @@ import {
 } from './origin';
 
 const uuid = /^[0-9a-f-]{36}$/i;
+const visitEvents = ['view', 'click', 'pay_link', 'pay_transfer'];
 const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
 
 @Injectable()
@@ -46,7 +47,7 @@ export class MedicionService {
     const utm = readUtm(input);
     if (
       !uuid.test(input.anonymousId ?? '') ||
-      (input.eventType !== 'view' && input.eventType !== 'click')
+      !visitEvents.includes(input.eventType ?? '')
     ) {
       throw new DomainException('beacon_invalid', 422);
     }
@@ -55,8 +56,11 @@ export class MedicionService {
         id: string;
         organization_id: string;
         notice_id: string | null;
+        status: string;
+        payment_link_url: string | null;
+        transfer_clabe: string | null;
       }>(
-        `SELECT c.id, c.organization_id, n.id AS notice_id
+        `SELECT c.id, c.organization_id, n.id AS notice_id, c.status, c.payment_link_url, c.transfer_clabe
          FROM campaign c
          LEFT JOIN privacy_notice n ON n.campaign_id = c.id AND n.published_at IS NOT NULL AND n.retired_at IS NULL
          WHERE c.slug = $1`,
@@ -64,6 +68,14 @@ export class MedicionService {
       );
       const campaign = found.rows[0];
       if (!campaign?.notice_id) throw new NotFoundException();
+      // Clic/vista del método de pago: solo si la campaña lo tiene publicado.
+      if (
+        (input.eventType === 'pay_link' &&
+          (!campaign.payment_link_url || campaign.status !== 'activa')) ||
+        (input.eventType === 'pay_transfer' &&
+          (!campaign.transfer_clabe || campaign.status !== 'activa'))
+      )
+        throw new DomainException('payment_method_missing', 422);
       let reason: 'preview_ua' | 'missing_ua' | 'bot' | 'reload_30m' | null =
         visitExclusion(userAgent);
       if (!reason) {
@@ -153,9 +165,12 @@ export class MedicionService {
         `WITH visits AS (
            SELECT origin, coalesce(utm_source, '') AS utm_source, coalesce(utm_medium, '') AS utm_medium,
                   coalesce(utm_campaign, '') AS utm_campaign, coalesce(utm_content, '') AS utm_content,
-                  count(DISTINCT anonymous_id) AS visitors
+                  count(DISTINCT anonymous_id) FILTER (WHERE event_type = 'view') AS visitors,
+                  count(*) FILTER (WHERE event_type = 'pay_link') AS pay_link,
+                  count(*) FILTER (WHERE event_type = 'pay_transfer') AS pay_transfer
            FROM visit_event
-           WHERE campaign_id = $1 AND organization_id = $2 AND counted AND event_type = 'view'
+           WHERE campaign_id = $1 AND organization_id = $2 AND counted
+             AND event_type IN ('view', 'pay_link', 'pay_transfer')
              AND occurred_at >= ($3::timestamp AT TIME ZONE $5)
              AND occurred_at < (($4::date + 1)::timestamp AT TIME ZONE $5)
            GROUP BY 1, 2, 3, 4, 5
@@ -172,6 +187,7 @@ export class MedicionService {
          )
          SELECT origin, utm_source, utm_medium, utm_campaign, utm_content,
                 coalesce(v.visitors, 0)::text AS visitors, coalesce(p.pledges, 0)::text AS pledges,
+                coalesce(v.pay_link, 0)::text AS pay_link, coalesce(v.pay_transfer, 0)::text AS pay_transfer,
                 coalesce(p.amount_minor, 0)::text AS amount_minor
          FROM visits v FULL JOIN pledges p USING (origin, utm_source, utm_medium, utm_campaign, utm_content)
          ORDER BY origin, utm_source, utm_medium, utm_campaign, utm_content`,
@@ -186,18 +202,34 @@ export class MedicionService {
         visitors: Number(row.visitors),
         pledges: Number(row.pledges),
         amountMinor: Number(row.amount_minor),
+        payLinkClicks: Number(row.pay_link),
+        payTransferViews: Number(row.pay_transfer),
         conversion: rate(Number(row.pledges), Number(row.visitors)),
+        payRate: rate(
+          Number(row.pay_link) + Number(row.pay_transfer),
+          Number(row.visitors),
+        ),
       }));
       const byOrigin = new Map<
         string,
-        { visitors: number; pledges: number; amountMinor: number }
+        {
+          visitors: number;
+          pledges: number;
+          amountMinor: number;
+          payLinkClicks: number;
+          payTransferViews: number;
+        }
       >();
       for (const row of rows) {
         const current = byOrigin.get(row.origin) ?? {
           visitors: 0,
           pledges: 0,
           amountMinor: 0,
+          payLinkClicks: 0,
+          payTransferViews: 0,
         };
+        current.payLinkClicks += row.payLinkClicks;
+        current.payTransferViews += row.payTransferViews;
         current.visitors += row.visitors;
         current.pledges += row.pledges;
         current.amountMinor += row.amountMinor;
@@ -208,6 +240,7 @@ export class MedicionService {
           origin,
           ...row,
           conversion: rate(row.pledges, row.visitors),
+          payRate: rate(row.payLinkClicks + row.payTransferViews, row.visitors),
         })),
         rows,
       };
@@ -238,6 +271,9 @@ export class MedicionService {
       'intenciones',
       'monto_minor',
       'conversion',
+      'clics_enlace_pago',
+      'vistas_transferencia',
+      'tasa_pago_externo',
     ];
     const lines = rows.map((row) =>
       [
@@ -250,6 +286,9 @@ export class MedicionService {
         row.pledges,
         row.amountMinor,
         row.conversion ?? '',
+        row.payLinkClicks,
+        row.payTransferViews,
+        row.payRate ?? '',
       ]
         .map(csvCell)
         .join(','),
@@ -595,6 +634,8 @@ type ConversionRow = {
   visitors: string;
   pledges: string;
   amount_minor: string;
+  pay_link: string;
+  pay_transfer: string;
 };
 
 function csvCell(value: string | number): string {

@@ -196,10 +196,10 @@ describe('UTM, consentimiento y anti-spam', () => {
     expect(csv.headers['content-type']).toContain('text/csv');
     const lines = csv.text.trim().split('\r\n');
     expect(lines[0]).toBe(
-      'origen,utm_source,utm_medium,utm_campaign,utm_content,visitantes,intenciones,monto_minor,conversion',
+      'origen,utm_source,utm_medium,utm_campaign,utm_content,visitantes,intenciones,monto_minor,conversion,clics_enlace_pago,vistas_transferencia,tasa_pago_externo',
     );
     expect(lines).toContain(
-      'facebook,facebook,paid_social,otono,video-1,1,1,2000,1',
+      'facebook,facebook,paid_social,otono,video-1,1,1,2000,1,0,0,0',
     );
 
     await request(app.getHttpServer())

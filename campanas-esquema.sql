@@ -249,8 +249,21 @@ CREATE TABLE campaign (
   status text NOT NULL CHECK (status IN ('borrador', 'en_revision', 'programada', 'activa', 'pausada', 'cerrada', 'archivada')),
   slug text NOT NULL UNIQUE,
   store_url text,
+  -- Método de pago externo del cliente: el dinero va directo al dueño de la campaña.
+  payment_link_url text,
+  transfer_bank text CHECK (transfer_bank IS NULL OR char_length(transfer_bank) BETWEEN 2 AND 80),
+  transfer_holder text CHECK (transfer_holder IS NULL OR char_length(transfer_holder) BETWEEN 2 AND 120),
+  transfer_clabe text CHECK (transfer_clabe IS NULL OR transfer_clabe ~ '^[0-9]{18}$'),
+  transfer_reference text CHECK (transfer_reference IS NULL OR char_length(transfer_reference) <= 60),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT campaign_payment_link_https CHECK (
+    payment_link_url IS NULL OR (payment_link_url ~ '^https://' AND char_length(payment_link_url) <= 500)
+  ),
+  CONSTRAINT campaign_transfer_complete CHECK (
+    (transfer_clabe IS NULL AND transfer_bank IS NULL AND transfer_holder IS NULL AND transfer_reference IS NULL)
+    OR (transfer_clabe IS NOT NULL AND transfer_bank IS NOT NULL AND transfer_holder IS NOT NULL)
+  ),
   CONSTRAINT campaign_slug_format CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$' AND char_length(slug) BETWEEN 3 AND 60),
   CONSTRAINT campaign_store_https CHECK (store_url IS NULL OR store_url ~ '^https://'),
   CONSTRAINT campaign_electoral_needs_policy CHECK (kind <> 'electoral' OR jurisdiction_policy_id IS NOT NULL OR status = 'borrador'),
@@ -479,7 +492,7 @@ CREATE TABLE visit_event (
   origin text NOT NULL CHECK (origin IN (
     'facebook', 'instagram', 'tiktok', 'youtube', 'x', 'linkedin', 'direct', 'other'
   )),
-  event_type text NOT NULL CHECK (event_type IN ('view', 'click')),
+  event_type text NOT NULL CHECK (event_type IN ('view', 'click', 'pay_link', 'pay_transfer')),
   postal_code text,
   browser text,
   device_class text CHECK (device_class IS NULL OR device_class IN ('phone', 'tablet', 'desktop')),
@@ -504,7 +517,7 @@ CREATE TABLE metric_bucket (
   campaign_id uuid NOT NULL REFERENCES campaign (id),
   origin text NOT NULL,
   bucket_start timestamptz NOT NULL,
-  event_type text NOT NULL CHECK (event_type IN ('view', 'click', 'donation')),
+  event_type text NOT NULL CHECK (event_type IN ('view', 'click', 'donation', 'pay_link', 'pay_transfer')),
   event_count bigint NOT NULL DEFAULT 0 CHECK (event_count >= 0),
   PRIMARY KEY (campaign_id, origin, bucket_start, event_type)
 );

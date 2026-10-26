@@ -4,9 +4,10 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, explain } from "@/lib/api";
+import { MetodoPagoForm, type CampaignPaymentMethod } from "./metodo-pago-form";
 
 type Organization = { id: string };
-type Campaign = { id: string; name: string; status: string; slug: string; kind: string };
+type Campaign = { id: string; name: string; status: string; slug: string; kind: string; paymentMethod?: CampaignPaymentMethod };
 type Notice = {
   id: string;
   version: number;
@@ -140,6 +141,7 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
           </button>
         ) : null}
       </div>
+      {campaign ? <MetodoPagoForm key={campaign.id} campaignId={campaign.id} organizationId={organizationId} initial={campaign.paymentMethod ?? null} /> : null}
       {campaign?.kind === "electoral" ? <p className="note">{tx("La electoral permanece en borrador hasta que exista el paquete.", "The electoral campaign stays in draft until the package exists.")}</p> : null}
     </main>
   );
