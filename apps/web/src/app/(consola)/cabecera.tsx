@@ -98,7 +98,7 @@ export function Cabecera({ onMenu }: { onMenu: () => void }) {
           </Link>
         ) : null}
         {entered ? (
-          <Link className="header-create inline-flex min-h-10 items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 px-3.5 text-sm font-semibold text-white shadow-sm shadow-indigo-500/20 hover:from-indigo-500 hover:to-indigo-600 hover:shadow-indigo-500/30 transition-all" href="/campanas/nueva">
+          <Link className="header-create" href="/campanas/nueva">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>

@@ -11,12 +11,14 @@ import {
   browserName,
   deviceClass,
   visitExclusion,
+  reportOrigin,
   visitOrigin,
   type VisitOrigin,
 } from './origin';
 
 const uuid = /^[0-9a-f-]{36}$/i;
 const visitEvents = ['view', 'click', 'pay_link', 'pay_transfer'];
+const donateIntent = new Set(['click', 'pay_link', 'pay_transfer']);
 const dateOnly = /^\d{4}-\d{2}-\d{2}$/;
 
 @Injectable()
@@ -194,7 +196,7 @@ export class MedicionService {
         [campaignId, organizationId, from, to, zone],
       );
       const rows = result.rows.map((row) => ({
-        origin: row.origin,
+        origin: reportOrigin(row.origin, row.utm_source),
         utmSource: row.utm_source || null,
         utmMedium: row.utm_medium || null,
         utmCampaign: row.utm_campaign || null,
@@ -575,7 +577,9 @@ function presentMetrics(
     };
     const total = Number(row.total);
     if (row.event_type === 'view') current.views += total;
-    if (row.event_type === 'click') current.clicks += total;
+    // Intención de donar: botón Donar, clic en enlace de pago o vista de la
+    // transferencia (CLABE). Así coincide con las columnas de conversión.
+    if (donateIntent.has(row.event_type)) current.clicks += total;
     if (row.event_type === 'donation') current.donations += total;
     byOrigin.set(row.origin, current);
   }
@@ -605,7 +609,7 @@ function presentMetrics(
   for (const row of seriesRows) {
     const current = days.get(row.day) ?? { views: 0, clicks: 0 };
     if (row.event_type === 'view') current.views += Number(row.total);
-    if (row.event_type === 'click') current.clicks += Number(row.total);
+    if (donateIntent.has(row.event_type)) current.clicks += Number(row.total);
     days.set(row.day, current);
   }
   return {

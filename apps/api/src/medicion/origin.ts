@@ -31,6 +31,28 @@ const botAgent = /bot|spider|crawler|preview/i;
 const automationAgent =
   /headless|phantomjs|selenium|webdriver|puppeteer|playwright|cypress|lighthouse|pagespeed|gtmetrix|pingdom|uptime|datadog|newrelic|statuscake|monitor|curl\/|wget|python-requests|python-urllib|python\/|aiohttp|httpx|scrapy|go-http-client|okhttp|java\/|apache-httpclient|libwww|node-fetch|undici|axios|got \(|postman|insomnia|httpie|feedfetcher|scraper/i;
 
+// Fuentes de mensajería: la base guarda 'other' (CHECK de origin), pero los
+// reportes las muestran con su nombre para que coincidan con el desglose UTM.
+const messagingSources: Record<string, ReportOrigin> = {
+  whatsapp: 'whatsapp',
+  wa: 'whatsapp',
+  wsp: 'whatsapp',
+  'whatsapp.com': 'whatsapp',
+  'wa.me': 'whatsapp',
+  telegram: 'telegram',
+  tg: 'telegram',
+};
+export type ReportOrigin = VisitOrigin | 'whatsapp' | 'telegram';
+
+export function reportOrigin(
+  origin: string,
+  utmSource: string | null | undefined,
+): string {
+  if (origin !== 'other') return origin;
+  const source = (utmSource ?? '').trim().toLowerCase();
+  return messagingSources[source] ?? origin;
+}
+
 export function visitOrigin(
   utmSource: string | undefined,
   referrer: string | undefined,

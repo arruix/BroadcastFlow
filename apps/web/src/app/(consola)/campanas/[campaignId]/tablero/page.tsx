@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, download, explain, watchEvents } from "@/lib/api";
+import { originLabel } from "@/lib/origen";
 
 type Organization = { id: string };
 type Campaign = { id: string; name: string; currency: string; slug: string };
@@ -244,8 +245,9 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
           <p className="stat-value">{views}</p>
         </article>
         <article className="stat">
-          <p className="stat-label">{tx("Clics en Donar", "Donate clicks")}</p>
+          <p className="stat-label">{tx("Intención de donar (clics)", "Donate intent (clicks)")}</p>
           <p className="stat-value">{clicks}</p>
+          <p className="text-xs text-[var(--muted)]">{tx("Botón Donar + enlace de pago + vistas de CLABE", "Donate button + payment link + CLABE views")}</p>
         </article>
         <article className="stat">
           <p className="stat-label">{tx("Excluidas", "Excluded")}</p>
@@ -282,7 +284,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
             <tbody>
               {metrics?.origins.map((row) => (
                 <tr key={row.origin}>
-                  <td>{row.origin}</td>
+                  <td>{originLabel(row.origin, tx)}</td>
                   <td>{row.views}</td>
                   <td>{percent(row.viewShare)}</td>
                   <td>{row.clicks}</td>
@@ -293,6 +295,11 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
               ))}
             </tbody>
           </table>
+          {metrics?.origins.some((row) => row.origin === "other") ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              {tx("“Otros” agrupa WhatsApp, Telegram y fuentes sin red social; el desglose está en Conversión.", "“Other” groups WhatsApp, Telegram and non-social sources; see Conversion for the breakdown.")}
+            </p>
+          ) : null}
         </section>
         <section className="sheet overflow-x-auto">
           <div className="flex items-center justify-between gap-3">
@@ -322,7 +329,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
             <tbody>
               {conversion?.origins.map((row) => (
                 <tr key={row.origin}>
-                  <td>{row.origin}</td>
+                  <td>{originLabel(row.origin, tx)}</td>
                   <td>{row.visitors}</td>
                   <td>{row.pledges}</td>
                   <td>{percent(row.conversion)}</td>
