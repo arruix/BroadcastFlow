@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { demoMode } from "@/lib/demo";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, download, explain, watchEvents } from "@/lib/api";
@@ -235,7 +236,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
               {tx("Aviso", "Notice")}
             </Link>
             <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza", "Piece")}</Link>
-            <Link className="chip" href="/conexiones">{tx("Conexiones", "Connections")}</Link>
+            {demoMode ? null : <Link className="chip" href="/conexiones">{tx("Conexiones", "Connections")}</Link>}
           </div>
         </section>
       ) : null}

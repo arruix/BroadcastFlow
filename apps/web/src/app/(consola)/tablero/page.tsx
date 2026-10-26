@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { demoMode } from "@/lib/demo";
 import { useEffect, useRef, useState } from "react";
 import { fill, useI18n } from "@/lib/i18n";
 import { api, explain, signedIn } from "@/lib/api";
@@ -254,10 +255,12 @@ export default function Tablero() {
                   <Link className="inline-flex min-h-10 items-center rounded-xl border border-slate-200/90 bg-white px-3.5 text-xs font-semibold hover:border-indigo-300 hover:text-indigo-600 shadow-2xs transition-all" href={`/campanas/${campaign.id}/libro`}>
                     {t.dash.ledger}
                   </Link>
-                  <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/60 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100/80 transition-all ml-auto" href={`/campanas/${campaign.id}/en-vivo`}>
-                    <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
-                    Live
-                  </Link>
+                  {demoMode ? null : (
+                    <Link className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50/60 px-3 text-xs font-semibold text-rose-600 hover:bg-rose-100/80 transition-all ml-auto" href={`/campanas/${campaign.id}/en-vivo`}>
+                      <span className="h-2 w-2 rounded-full bg-rose-500 animate-pulse" />
+                      Live
+                    </Link>
+                  )}
                 </div>
               </article>
             ))}

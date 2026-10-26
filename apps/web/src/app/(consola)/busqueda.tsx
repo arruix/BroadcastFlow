@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { visibleInDemo } from "@/lib/demo";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/lib/i18n";
@@ -98,6 +99,7 @@ export function Busqueda() {
     ];
     return catalog.filter((section) => {
       if (section.id === "platform" && !operator) return false;
+      if (!visibleInDemo(section.id)) return false;
       const label = (section.id === "team" ? t.header.team : t.nav[section.id as keyof typeof t.nav]).toLocaleLowerCase();
       return label.startsWith(needle) || label.split(/\s+/).some((word) => word.startsWith(needle));
     });

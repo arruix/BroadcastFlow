@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { demoMode } from "@/lib/demo";
 import { FormEvent, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, explain } from "@/lib/api";
@@ -101,7 +102,7 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
         <nav className="jumps" aria-label={tx("Secciones de la campaña", "Campaign sections")}>
           <Link className="chip" href={`/campanas/${campaign.id}/tablero`}>{tx("Tablero", "Board")}</Link>
           <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza y ficha", "Piece and link card")}</Link>
-          <Link className="chip" href={`/campanas/${campaign.id}/en-vivo`}>{tx("En vivo", "Live")}</Link>
+          {demoMode ? null : <Link className="chip" href={`/campanas/${campaign.id}/en-vivo`}>{tx("En vivo", "Live")}</Link>}
           <Link className="chip" href={`/campanas/${campaign.id}/libro`}>{tx("Libro", "Ledger")}</Link>
           <Link className="chip" href={`/c/${campaign.slug}`}>{tx("Ver página pública", "See the public page")}</Link>
         </nav>
