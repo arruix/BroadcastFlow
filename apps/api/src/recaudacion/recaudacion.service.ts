@@ -18,6 +18,13 @@ export type DonationInput = {
 };
 
 const fiscalReceipt = false;
+
+export function simulatedPaymentsEnabled(): boolean {
+  return (
+    process.env.DONATIONS_SIMULATED_PAYMENTS === 'true' &&
+    process.env.NODE_ENV !== 'production'
+  );
+}
 const contactRetention = '5 years';
 
 type DonationRow = {
@@ -233,7 +240,12 @@ export class RecaudacionService {
     return donationRecord(row);
   }
 
+  // Cobro simulado: firma el webhook con la llave interna. Solo existe para
+  // desarrollo; queda apagado salvo DONATIONS_SIMULATED_PAYMENTS=true y nunca
+  // en producción. Ningún donativo se marca pagado sin una pasarela real.
   async payDonation(donationId: string) {
+    if (!simulatedPaymentsEnabled())
+      throw new DomainException('payments_not_enabled', 503);
     if (!/^[0-9a-f-]{36}$/i.test(donationId)) throw new NotFoundException();
     const found = await this.db.asWorker((db) =>
       db.query<{

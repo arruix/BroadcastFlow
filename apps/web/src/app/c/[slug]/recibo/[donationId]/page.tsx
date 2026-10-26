@@ -30,6 +30,26 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
     );
   }
   const receipt = (await response.json()) as Receipt;
+  if (receipt.status === "pendiente") {
+    return (
+      <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 px-4 py-12">
+        <div className="flex items-center justify-between gap-3">
+          <p className="eyebrow">{tx("Intención registrada", "Pledge recorded")}</p>
+          <Idioma />
+        </div>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
+        <p className="text-sm text-slate-600">
+          {tx(
+            "Registramos tu intención de donar. No se ha realizado ningún cobro: te avisaremos por correo cuando el pago esté habilitado.",
+            "We recorded your pledge. No charge has been made: we will email you when payment is enabled."
+          )}
+        </p>
+        <p className="text-sm">
+          {tx("Monto", "Amount")}: {(receipt.grossMinor / 100).toFixed(2)} {receipt.currency}
+        </p>
+      </main>
+    );
+  }
   return (
     <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 px-4 py-12">
       <div className="flex items-center justify-between gap-3">
