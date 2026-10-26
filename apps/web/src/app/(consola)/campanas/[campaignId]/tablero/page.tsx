@@ -197,6 +197,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
           </Link>
         ) : null}
       </header>
+      {demoMode ? null : (
       <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/60 p-4 shadow-2xs">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
@@ -215,6 +216,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
           </p>
         </div>
       </div>
+      )}
       <form className="fields">
         <label className="flex flex-col gap-1">
           {tx("Desde", "From")}
