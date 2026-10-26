@@ -1,0 +1,72 @@
+# Producción del piloto (VPS). Postgres y Redis no publican puertos;
+# api y web solo en 127.0.0.1; Caddy (red host) sirve 80/443 detrás de Cloudflare.
+name: broadcastflow
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: broadcastflow
+      POSTGRES_DB: broadcastflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U broadcastflow -d broadcastflow"]
+      interval: 10s
+      retries: 6
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "${REDIS_PASSWORD:?}"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep PONG"]
+      interval: 10s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?}
+  api:
+    build: { context: ., dockerfile: deploy/Dockerfile.api }
+    restart: always
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: postgres://broadcastflow:${POSTGRES_PASSWORD}@postgres:5432/broadcastflow
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    ports:
+      - "127.0.0.1:3001:3001"
+  web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile.web
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:?}
+        NEXT_PUBLIC_SITE_URL: ${NEXT_PUBLIC_SITE_URL:?}
+        NEXT_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_DEMO_MODE:-true}
+    restart: always
+    environment:
+      NODE_ENV: production
+    depends_on: [api]
+    ports:
+      - "127.0.0.1:3000:3000"
+  caddy:
+    image: caddy:2
+    restart: always
+    network_mode: host
+    env_file: .basic-auth.env
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/certs:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on: [web, api]
+volumes:
+  pgdata:
+  redisdata:
+  caddydata:
+  caddyconfig:
