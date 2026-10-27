@@ -129,10 +129,15 @@ export default function Pieza({ params }: { params: Promise<{ campaignId: string
 
   return (
     <main className="console-page">
+      <section className="sheet multired-slot" aria-labelledby="multired-title">
+        <p className="eyebrow">{tx("Próximamente", "Coming soon")}</p>
+        <h2 id="multired-title" className="text-xl">{tx("Crea una vez, publica en todas las redes", "Create once, publish everywhere")}</h2>
+        <p className="text-sm">{tx("Aquí vas a subir una imagen o un video y ver cómo se verá en cada red antes de publicar.", "Here you will upload an image or a video and preview how it looks on each network before publishing.")}</p>
+      </section>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <p className="eyebrow">{tx("Pieza", "Piece")}</p>
-          <h1 className="text-4xl">{campaign?.name ?? tx("Pieza", "Piece")}</h1>
+          <p className="eyebrow">{tx("Pieza para redes", "Social piece")}</p>
+          <h1 className="text-4xl">{campaign?.name ?? tx("Pieza para redes", "Social piece")}</h1>
         </div>
         {campaign ? (
           <Link className="chip" href={`/c/${campaign.slug}`}>

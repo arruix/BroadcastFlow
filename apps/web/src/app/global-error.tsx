@@ -28,7 +28,7 @@ export default function GlobalError({
           </p>
           <button
             onClick={() => reset()}
-            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-indigo-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition"
+            className="mt-2 inline-flex min-h-10 items-center justify-center rounded-xl bg-teal-600 px-5 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 transition"
           >
             Reintentar
           </button>

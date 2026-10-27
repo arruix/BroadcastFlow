@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useTx } from "@/lib/i18n";
+import { fill, useTx } from "@/lib/i18n";
 import { api, explain, signedIn } from "@/lib/api";
-import { originLabel } from "@/lib/origen";
+import { originColor, originLabel } from "@/lib/origen";
 
 type Campaign = { id: string; name: string; slug: string; status?: string };
 type Metrics = { excludedCount: number; origins: { origin: string; views: number; clicks: number }[] };
@@ -99,21 +99,22 @@ export default function Medicion() {
     }),
     { views: 0, intent: 0, visitors: 0, pledges: 0 },
   );
+  const leader = [...(rows ?? [])].filter((row) => row.topOrigin).sort((x, y) => y.views - x.views)[0]?.topOrigin ?? null;
 
   return (
     <main className="console-page">
       <header className="flex flex-col gap-2">
-        <p className="eyebrow">{tx("Medición", "Measurement")}</p>
-        <h1 className="text-4xl">{tx("Resumen de medición", "Measurement overview")}</h1>
+        <p className="eyebrow">{tx("Resultados", "Results")}</p>
+        <h1 className="text-4xl">{tx("Resultados de tus campañas", "Your campaign results")}</h1>
         <p className="lede">
           {tx(
-            "Vistas, intención de donar e intenciones registradas de todas tus campañas. Abre el tablero de cada una para ver el detalle por red y UTM.",
-            "Views, donate intent and recorded pledges across your campaigns. Open each dashboard for the network and UTM detail.",
+            "Cuántas personas vieron tus campañas, cuántas quisieron donar y cuántas registraron su donativo. Abre cada campaña para ver el detalle por red.",
+            "How many people saw your campaigns, how many wanted to donate, and how many recorded a donation. Open each campaign for the detail by network.",
           )}
         </p>
       </header>
       {!entered ? (
-        <Link className="inline-flex min-h-11 w-fit items-center rounded bg-neutral-900 px-4 text-white" href="/ingresar">
+        <Link className="btn-primary w-fit" href="/ingresar">
           {tx("Ingresar", "Sign in")}
         </Link>
       ) : null}
@@ -130,8 +131,8 @@ export default function Medicion() {
       {rows && rows.length === 0 ? (
         <section className="empty-act">
           <p>{tx("Todavía no tienes campañas.", "You have no campaigns yet.")}</p>
-          <Link className="inline-flex min-h-11 items-center rounded bg-neutral-900 px-4 text-white" href="/campanas/nueva">
-            {tx("Nueva campaña", "New campaign")}
+          <Link className="btn-primary" href="/campanas/nueva">
+            {tx("Crear campaña", "Create campaign")}
           </Link>
         </section>
       ) : null}
@@ -139,65 +140,64 @@ export default function Medicion() {
         <>
           <section className="medicion-totales">
             <article className="stat">
-              <p className="stat-label">{tx("Vistas", "Views")}</p>
-              <p className="stat-value">{total.views}</p>
+              <p className="stat-label">{tx("Visitas", "Visits")}</p>
+              <p className="stat-value">{total.views.toLocaleString("es-MX")}</p>
+              <p className="text-xs text-[var(--muted)]">{fill(tx("{n} personas distintas", "{n} different people"), { n: total.visitors.toLocaleString("es-MX") })}</p>
             </article>
             <article className="stat">
-              <p className="stat-label">{tx("Visitantes únicos", "Unique visitors")}</p>
-              <p className="stat-value">{total.visitors}</p>
+              <p className="stat-label">{tx("Quisieron donar", "Wanted to donate")}</p>
+              <p className="stat-value">{total.intent.toLocaleString("es-MX")}</p>
+              <p className="text-xs text-[var(--muted)]">{tx("Tocaron el botón Donar", "Tapped the Donate button")}</p>
             </article>
             <article className="stat">
-              <p className="stat-label">{tx("Intención de donar (clics)", "Donate intent (clicks)")}</p>
-              <p className="stat-value">{total.intent}</p>
+              <p className="stat-label">{tx("Donativos registrados", "Recorded donations")}</p>
+              <p className="stat-value">{total.pledges.toLocaleString("es-MX")}</p>
+              <p className="text-xs text-[var(--muted)]">{fill(tx("{p} de quienes visitaron", "{p} of visitors"), { p: percent(total.pledges, total.visitors) })}</p>
             </article>
             <article className="stat">
-              <p className="stat-label">{tx("Intenciones registradas", "Recorded pledges")}</p>
-              <p className="stat-value">{total.pledges}</p>
-              <p className="text-xs text-[var(--muted)]">{tx("Conversión", "Conversion")} {percent(total.pledges, total.visitors)}</p>
+              <p className="stat-label">{tx("Red principal", "Top network")}</p>
+              <p className="stat-value">{leader ? originLabel(leader, tx) : "—"}</p>
+              <p className="text-xs text-[var(--muted)]">{tx("De donde llegó más gente", "Where most people came from")}</p>
             </article>
           </section>
-          <section className="sheet overflow-x-auto">
+          <section className="sheet">
             <h2 className="text-2xl">{tx("Por campaña", "By campaign")}</h2>
-            <table className="data-table">
-              <thead>
-                <tr>
-                  <th>{tx("Campaña", "Campaign")}</th>
-                  <th>{tx("Vistas", "Views")}</th>
-                  <th>{tx("Visitantes", "Visitors")}</th>
-                  <th>{tx("Intención (clics)", "Intent (clicks)")}</th>
-                  <th>{tx("Enlace de pago", "Payment link")}</th>
-                  <th>{tx("Vistas CLABE", "CLABE views")}</th>
-                  <th>{tx("Intenciones", "Pledges")}</th>
-                  <th>{tx("Conversión", "Conversion")}</th>
-                  <th>{tx("Origen principal", "Top origin")}</th>
-                  <th><span className="sr-only">{tx("Tablero", "Dashboard")}</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.campaign.id}>
-                    <td className="font-semibold">{row.campaign.name}</td>
-                    <td>{row.views}</td>
-                    <td>{row.visitors}</td>
-                    <td>{row.intent}</td>
-                    <td>{row.payLink}</td>
-                    <td>{row.payTransfer}</td>
-                    <td>{row.pledges}</td>
-                    <td>{percent(row.pledges, row.visitors)}</td>
-                    <td>{row.topOrigin ? originLabel(row.topOrigin, tx) : "—"}</td>
-                    <td>
-                      {row.error ? (
-                        <span className="text-xs text-[var(--muted)]">{row.error}</span>
-                      ) : (
-                        <Link className="chip" href={`/campanas/${row.campaign.id}/tablero`}>
-                          {tx("Ver tablero", "Open dashboard")}
-                        </Link>
-                      )}
-                    </td>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{tx("Campaña", "Campaign")}</th>
+                    <th className="num">{tx("Visitas", "Visits")}</th>
+                    <th className="num">{tx("Quisieron donar", "Wanted to donate")}</th>
+                    <th className="num">{tx("Donativos", "Donations")}</th>
+                    <th>{tx("Red principal", "Top network")}</th>
+                    <th><span className="sr-only">{tx("Detalle", "Detail")}</span></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.campaign.id}>
+                      <td className="font-semibold">{row.campaign.name}</td>
+                      <td className="num">{row.views}</td>
+                      <td className="num">{row.intent}</td>
+                      <td className="num">
+                        {row.pledges} <span className="text-xs text-[var(--muted)]">({percent(row.pledges, row.visitors)})</span>
+                      </td>
+                      <td>{row.topOrigin ? <span className="net-label"><i className="net-dot" style={{ background: originColor(row.topOrigin) }} />{originLabel(row.topOrigin, tx)}</span> : "—"}</td>
+                      <td>
+                        {row.error ? (
+                          <span className="text-xs text-[var(--muted)]">{row.error}</span>
+                        ) : (
+                          <Link className="chip" href={`/campanas/${row.campaign.id}/tablero`}>
+                            {tx("Ver detalle", "See detail")}
+                          </Link>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
         </>
       ) : null}

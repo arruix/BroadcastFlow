@@ -100,10 +100,10 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
       </header>
       {campaign ? (
         <nav className="jumps" aria-label={tx("Secciones de la campaña", "Campaign sections")}>
-          <Link className="chip" href={`/campanas/${campaign.id}/tablero`}>{tx("Tablero", "Board")}</Link>
-          <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza y ficha", "Piece and link card")}</Link>
+          <Link className="chip" href={`/campanas/${campaign.id}/tablero`}>{tx("Resultados", "Results")}</Link>
+          <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza para redes", "Social piece")}</Link>
           {demoMode ? null : <Link className="chip" href={`/campanas/${campaign.id}/en-vivo`}>{tx("En vivo", "Live")}</Link>}
-          <Link className="chip" href={`/campanas/${campaign.id}/libro`}>{tx("Libro", "Ledger")}</Link>
+          <Link className="chip" href={`/campanas/${campaign.id}/libro`}>{tx("Movimientos", "Money movements")}</Link>
           <Link className="chip" href={`/c/${campaign.slug}`}>{tx("Ver página pública", "See the public page")}</Link>
         </nav>
       ) : null}

@@ -85,7 +85,7 @@ export function Cabecera({ onMenu }: { onMenu: () => void }) {
 
   return (
     <header className="console-header">
-      <button className="rail-toggle min-h-11 items-center gap-2 px-3 text-slate-700 hover:text-indigo-600 font-semibold transition-colors" type="button" onClick={onMenu}>
+      <button className="rail-toggle min-h-11 items-center gap-2 px-3 text-slate-700 hover:text-teal-600 font-semibold transition-colors" type="button" onClick={onMenu}>
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
           <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
         </svg>
@@ -94,7 +94,7 @@ export function Cabecera({ onMenu }: { onMenu: () => void }) {
       {entered ? <Busqueda /> : <span className="finder" />}
       <div className="ml-auto flex items-center gap-2">
         {organization?.role === "owner" || organization?.role === "admin" ? (
-          <Link className="inline-flex min-h-10 items-center px-2.5 text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors" href="/equipo">
+          <Link className="inline-flex min-h-10 items-center px-2.5 text-sm font-semibold text-slate-600 hover:text-teal-600 transition-colors" href="/equipo">
             {t.header.team}
           </Link>
         ) : null}

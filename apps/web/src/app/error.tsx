@@ -29,7 +29,7 @@ export default function ErrorBoundary({
       <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
         <button
           onClick={() => reset()}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl bg-teal-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 transition"
         >
           Intentar de nuevo
         </button>

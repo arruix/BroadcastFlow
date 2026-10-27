@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { demoMode } from "@/lib/demo";
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { useTx } from "@/lib/i18n";
+import { fill, useTx } from "@/lib/i18n";
 import { api, download, explain, watchEvents } from "@/lib/api";
-import { originLabel } from "@/lib/origen";
+import { originColor, originLabel } from "@/lib/origen";
 
 type Organization = { id: string };
 type Campaign = { id: string; name: string; currency: string; slug: string };
@@ -182,14 +182,16 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
 
   const views = metrics?.origins.reduce((sum, row) => sum + row.views, 0) ?? 0;
   const clicks = metrics?.origins.reduce((sum, row) => sum + row.clicks, 0) ?? 0;
+  const visitors = conversion?.origins.reduce((sum, row) => sum + row.visitors, 0) ?? 0;
+  const pledges = conversion?.origins.reduce((sum, row) => sum + row.pledges, 0) ?? 0;
   const widest = Math.max(1, ...(metrics?.series.map((row) => row.views) ?? [1]));
 
   return (
     <main className="console-page">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-2">
-          <p className="eyebrow">{tx("Campaña", "Campaign")}</p>
-          <h1 className="text-4xl">{campaign?.name ?? tx("Tablero", "Board")}</h1>
+          <p className="eyebrow">{tx("Resultados", "Results")}</p>
+          <h1 className="text-4xl">{campaign?.name ?? tx("Resultados", "Results")}</h1>
         </div>
         {campaign ? (
           <Link className="chip" href={`/c/${campaign.slug}`}>
@@ -198,8 +200,8 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
         ) : null}
       </header>
       {demoMode ? null : (
-      <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/80 via-white to-violet-50/60 p-4 shadow-2xs">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs">
+      <div className="flex items-start gap-3 rounded-2xl border border-teal-100 bg-teal-50/60 p-4 shadow-2xs">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-teal-700 text-white shadow-2xs">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -231,29 +233,44 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
         <section className="empty-act">
           <div>
             <h2 className="text-2xl">{tx("Esta semana no hay vistas ni clics.", "This week has no views or clicks.")}</h2>
-            <p>{tx("Publica la pieza o el aviso. Sin aviso publicado no hay medición ni botón Donar.", "Publish the piece or the notice. Without a published notice there is no measurement and no Donate button.")}</p>
+            <p>{tx("Publica el contenido o el aviso. Sin aviso publicado no hay medición ni botón Donar.", "Publish the piece or the notice. Without a published notice there is no measurement and no Donate button.")}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link className="inline-flex min-h-11 items-center rounded bg-neutral-900 px-4 text-white" href={`/campanas/${campaign.id}`}>
               {tx("Aviso", "Notice")}
             </Link>
-            <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza", "Piece")}</Link>
+            <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza para redes", "Social piece")}</Link>
             {demoMode ? null : <Link className="chip" href="/conexiones">{tx("Conexiones", "Connections")}</Link>}
           </div>
         </section>
       ) : null}
       <section className="stat-grid">
         <article className="stat">
-          <p className="stat-label">{tx("Vistas", "Views")}</p>
+          <p className="stat-label">{tx("Visitas", "Visits")}</p>
           <p className="stat-value">{views}</p>
         </article>
         <article className="stat">
-          <p className="stat-label">{tx("Intención de donar (clics)", "Donate intent (clicks)")}</p>
+          <p className="stat-label">{tx("Quisieron donar", "Wanted to donate")}</p>
           <p className="stat-value">{clicks}</p>
-          <p className="text-xs text-[var(--muted)]">{tx("Botón Donar + enlace de pago + vistas de CLABE", "Donate button + payment link + CLABE views")}</p>
+          <p className="text-xs text-[var(--muted)]">{tx("Tocaron Donar, el enlace de pago o la CLABE", "Tapped Donate, the payment link, or the CLABE")}</p>
         </article>
         <article className="stat">
-          <p className="stat-label">{tx("Excluidas", "Excluded")}</p>
+          <p className="stat-label">{tx("Donativos registrados", "Recorded donations")}</p>
+          <p className="stat-value">{pledges}</p>
+          <p className="text-xs text-[var(--muted)]">{fill(tx("{p} de quienes visitaron", "{p} of visitors"), { p: visitors > 0 ? percent(pledges / visitors) : "—" })}</p>
+        </article>
+        <article className="stat">
+          <p className="stat-label">
+            {tx("Visitas no contadas", "Uncounted visits")}{" "}
+            <span
+              className="info"
+              tabIndex={0}
+              title={tx("Visitas de robots, del propio equipo o repetidas en pocos segundos. No suman en los resultados.", "Visits from bots, your own team, or repeats within seconds. They are left out of the results.")}
+              aria-label={tx("Qué son las visitas no contadas", "What uncounted visits are")}
+            >
+              ⓘ
+            </span>
+          </p>
           <p className="stat-value">{metrics?.excludedCount ?? 0}</p>
         </article>
       </section>
@@ -265,123 +282,137 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
               <span className="text-sm text-[var(--muted)]">{row.day}</span>
               <span className="day-track"><span className="day-fill" style={{ width: `${Math.max(4, (row.views / widest) * 100)}%` }} /></span>
               <span className="text-sm">
-                {row.views} {row.views === 1 ? tx("vista", "view") : tx("vistas", "views")} · {row.clicks} {row.clicks === 1 ? tx("clic", "click") : tx("clics", "clicks")}
+                {row.views} {row.views === 1 ? tx("visita", "visit") : tx("visitas", "visits")} · {row.clicks} {tx("quisieron donar", "wanted to donate")}
               </span>
             </div>
           ))}
         </section>
-        <section className="sheet overflow-x-auto">
+        <section className="sheet">
           <h2 className="text-2xl">{tx("Por red", "By network")}</h2>
+          <div className="flex flex-col gap-3">
+            {metrics?.origins.map((row) => {
+              const pledged = conversion?.origins.find((item) => item.origin === row.origin)?.pledges ?? 0;
+              return (
+                <div key={row.origin} className="net-row">
+                  <span className="net-label">
+                    <i className="net-dot" style={{ background: originColor(row.origin) }} />
+                    {originLabel(row.origin, tx)}
+                  </span>
+                  <span className="day-track">
+                    <span className="day-fill" style={{ width: `${Math.max(3, row.viewShare * 100)}%`, background: originColor(row.origin) }} />
+                  </span>
+                  <span className="text-sm text-[var(--muted)]">
+                    {row.views} {tx("visitas", "visits")} · {row.clicks} {tx("quisieron donar", "wanted to donate")} · {pledged} {tx("donativos", "donations")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {metrics?.origins.some((row) => row.origin === "other") ? (
+            <p className="mt-2 text-xs text-[var(--muted)]">
+              {tx("“Otros” agrupa WhatsApp, Telegram y fuentes sin red social; el desglose está en Ver detalle.", "“Other” groups WhatsApp, Telegram and non-social sources; see the detail below.")}
+            </p>
+          ) : null}
+        </section>
+      </div>
+      <details className="sheet detail-box">
+        <summary className="flex flex-wrap items-center justify-between gap-3">
+          <span className="text-xl font-semibold">{tx("Ver detalle", "See detail")}</span>
+          <span className="text-sm text-[var(--muted)]">{tx("Conversión, pagos, costo por clic y enlaces con UTM", "Conversion, payments, cost per click, and UTM links")}</span>
+        </summary>
+        <div className="flex justify-end">
+          <button className="quiet w-fit" type="button" onClick={exportConversion}>
+            {tx("Exportar CSV", "Export CSV")}
+          </button>
+        </div>
+        <h3 className="text-lg font-semibold">{tx("Por red", "By network")}</h3>
+        <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
                 <th>{tx("Red", "Network")}</th>
-                <th>{tx("Vistas", "Views")}</th>
-                <th>{tx("% vistas", "% views")}</th>
-                <th>{tx("Clics", "Clicks")}</th>
-                <th>{tx("% clic", "% click")}</th>
-                <th>{tx("% donó", "% donated")}</th>
-                {metrics?.cpcVisible ? <th>CPC</th> : null}
+                <th className="num">{tx("Personas", "People")}</th>
+                <th className="num">{tx("Donativos", "Donations")}</th>
+                <th className="num">{tx("Monto", "Amount")}</th>
+                <th className="num">{metrics?.cpcVisible ? tx("Costo por clic", "Cost per click") : tx("Conversión", "Conversion")}</th>
               </tr>
             </thead>
             <tbody>
-              {metrics?.origins.map((row) => (
-                <tr key={row.origin}>
-                  <td>{originLabel(row.origin, tx)}</td>
-                  <td>{row.views}</td>
-                  <td>{percent(row.viewShare)}</td>
-                  <td>{row.clicks}</td>
-                  <td>{percent(row.clickRate)}</td>
-                  <td>{percent(row.donationRate)}</td>
-                  {metrics.cpcVisible ? <td>{row.cpcMinor === null ? "—" : (row.cpcMinor / 100).toFixed(2)}</td> : null}
-                </tr>
-              ))}
+              {conversion?.origins.map((row) => {
+                const cpc = metrics?.origins.find((item) => item.origin === row.origin)?.cpcMinor ?? null;
+                return (
+                  <tr key={row.origin}>
+                    <td>{originLabel(row.origin, tx)}</td>
+                    <td className="num">{row.visitors}</td>
+                    <td className="num">
+                      {row.pledges} <span className="text-xs text-[var(--muted)]">({percent(row.conversion)})</span>
+                    </td>
+                    <td className="num">{(row.amountMinor / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                    <td className="num">{metrics?.cpcVisible ? (cpc === null ? "—" : (cpc / 100).toFixed(2)) : percent(row.conversion)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          {metrics?.origins.some((row) => row.origin === "other") ? (
-            <p className="mt-2 text-xs text-[var(--muted)]">
-              {tx("“Otros” agrupa WhatsApp, Telegram y fuentes sin red social; el desglose está en Conversión.", "“Other” groups WhatsApp, Telegram and non-social sources; see Conversion for the breakdown.")}
-            </p>
-          ) : null}
-        </section>
-        <section className="sheet overflow-x-auto">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-2xl">{tx("Conversión visita → intención", "Visit → pledge conversion")}</h2>
-            <button className="quiet w-fit" type="button" onClick={exportConversion}>
-              {tx("Exportar CSV", "Export CSV")}
-            </button>
-          </div>
-          <p className="lede">
-            {tx(
-              "Visitantes únicos contados contra intenciones de donar registradas, por origen.",
-              "Unique counted visitors versus recorded pledges, by origin."
-            )}
-          </p>
+        </div>
+        <h3 className="text-lg font-semibold">{tx("Cómo pagaron", "How they paid")}</h3>
+        <div className="table-scroll">
           <table className="data-table">
             <thead>
               <tr>
-                <th>{tx("Origen", "Origin")}</th>
-                <th>{tx("Visitantes", "Visitors")}</th>
-                <th>{tx("Intenciones", "Pledges")}</th>
-                <th>{tx("Conversión", "Conversion")}</th>
-                <th>{tx("Monto", "Amount")}</th>
-                <th>{tx("Clics enlace de pago", "Payment link clicks")}</th>
-                <th>{tx("Vistas transferencia", "Transfer views")}</th>
+                <th>{tx("Red", "Network")}</th>
+                <th className="num">{tx("Abrieron enlace de pago", "Opened payment link")}</th>
+                <th className="num">{tx("Vieron la CLABE", "Saw the CLABE")}</th>
               </tr>
             </thead>
             <tbody>
               {conversion?.origins.map((row) => (
                 <tr key={row.origin}>
                   <td>{originLabel(row.origin, tx)}</td>
-                  <td>{row.visitors}</td>
-                  <td>{row.pledges}</td>
-                  <td>{percent(row.conversion)}</td>
-                  <td>{(row.amountMinor / 100).toFixed(2)}</td>
-                  <td>{row.payLinkClicks}</td>
-                  <td>{row.payTransferViews}</td>
+                  <td className="num">{row.payLinkClicks}</td>
+                  <td className="num">{row.payTransferViews}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {conversion && conversion.rows.some((row) => row.utmCampaign) ? (
-            <table className="data-table mt-4">
-              <thead>
-                <tr>
-                  <th>utm_source</th>
-                  <th>utm_medium</th>
-                  <th>utm_campaign</th>
-                  <th>utm_content</th>
-                  <th>{tx("Visitantes", "Visitors")}</th>
-                  <th>{tx("Intenciones", "Pledges")}</th>
-                  <th>{tx("Conversión", "Conversion")}</th>
-                  <th>{tx("Clics enlace de pago", "Payment link clicks")}</th>
-                  <th>{tx("Vistas transferencia", "Transfer views")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {conversion.rows.map((row, index) => (
-                  <tr key={index}>
-                    <td>{row.utmSource ?? "—"}</td>
-                    <td>{row.utmMedium ?? "—"}</td>
-                    <td>{row.utmCampaign ?? "—"}</td>
-                    <td>{row.utmContent ?? "—"}</td>
-                    <td>{row.visitors}</td>
-                    <td>{row.pledges}</td>
-                    <td>{percent(row.conversion)}</td>
-                    <td>{row.payLinkClicks}</td>
-                    <td>{row.payTransferViews}</td>
+        </div>
+        {conversion && conversion.rows.some((row) => row.utmCampaign) ? (
+          <>
+            <h3 className="text-lg font-semibold">{tx("Por enlace (UTM)", "By link (UTM)")}</h3>
+            <div className="table-scroll">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>{tx("Fuente / medio", "Source / medium")}</th>
+                    <th>{tx("Campaña / contenido", "Campaign / content")}</th>
+                    <th className="num">{tx("Personas", "People")}</th>
+                    <th className="num">{tx("Donativos", "Donations")}</th>
+                    <th className="num">{tx("Pagos abiertos", "Payments opened")}</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : null}
-        </section>
-      </div>
+                </thead>
+                <tbody>
+                  {conversion.rows.map((row, index) => (
+                    <tr key={index}>
+                      <td>{row.utmSource ?? "—"} / {row.utmMedium ?? "—"}</td>
+                      <td>{row.utmCampaign ?? "—"}{row.utmContent ? ` / ${row.utmContent}` : ""}</td>
+                      <td className="num">{row.visitors}</td>
+                      <td className="num">
+                        {row.pledges} <span className="text-xs text-[var(--muted)]">({percent(row.conversion)})</span>
+                      </td>
+                      <td className="num">{row.payLinkClicks + row.payTransferViews}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+      </details>
       {message ? <p className="note">{message}</p> : null}
       {metrics?.cpcVisible && campaign ? (
         <form id="gasto" className="sheet" onSubmit={saveSpend}>
-          <h2 className="text-2xl">{tx("Gasto de pauta", "Ad spend")}</h2>
-          <p className="lede">{tx("No es un asiento del libro. El directo no tiene CPC.", "It is not a ledger entry. Live has no CPC.")}</p>
+          <h2 className="text-2xl">{tx("Gasto en anuncios", "Ad spend")}</h2>
+          <p className="lede">{tx("Anota lo que pagaste en anuncios para calcular el costo por clic. No es un movimiento de dinero de la campaña. Las transmisiones en vivo no tienen costo por clic.", "Enter what you paid for ads to work out the cost per click. It is not a money movement of the campaign. Live streams have no cost per click.")}</p>
           <label className="flex flex-col gap-1">
             {tx("Red", "Network")}
             <select className="min-h-11 rounded border px-3" value={network} onChange={(event) => setNetwork(event.target.value)}>
@@ -397,7 +428,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
             <input className="min-h-11 rounded border px-3" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(event) => setAmount(event.target.value)} />
           </label>
           <button className="min-h-11 rounded bg-neutral-900 px-4 text-white" type="submit">
-            {tx("Cargar gasto", "Load spend")}
+            {tx("Guardar gasto", "Save spend")}
           </button>
           {spend ? (
             <button className="quiet w-fit" type="button" onClick={closeSpend} disabled={spend.closed}>

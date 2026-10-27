@@ -166,7 +166,7 @@ export function Donar({
                 onClick={() => setAmount(preset)}
                 className={`min-h-10 rounded-xl text-sm font-bold border transition ${
                   amount === preset
-                    ? "border-indigo-600 bg-indigo-50 text-indigo-600 ring-2 ring-indigo-600/20"
+                    ? "border-teal-700 bg-teal-50 text-teal-700 ring-2 ring-teal-700/20"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
@@ -175,7 +175,7 @@ export function Donar({
             ))}
           </div>
           <input
-            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-slate-900 font-semibold focus:border-indigo-500 focus:outline-hidden"
+            className="min-h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-slate-900 font-semibold focus:border-teal-500 focus:outline-hidden"
             inputMode="decimal"
             placeholder={tx("Otro monto", "Other amount")}
             value={amount}
@@ -187,7 +187,7 @@ export function Donar({
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           {tx("Nombre completo", "Full name")}
           <input
-            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-900 focus:border-indigo-500 focus:outline-hidden"
+            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-900 focus:border-teal-500 focus:outline-hidden"
             placeholder={tx("Ej. Ana Ruiz", "e.g. Jane Doe")}
             value={donorName}
             onChange={(e) => setDonorName(e.target.value)}
@@ -198,7 +198,7 @@ export function Donar({
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           {tx("Correo electrónico", "Email address")}
           <input
-            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-900 focus:border-indigo-500 focus:outline-hidden"
+            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 text-slate-900 focus:border-teal-500 focus:outline-hidden"
             type="email"
             placeholder="tu@correo.com"
             value={donorEmail}
@@ -245,7 +245,7 @@ export function Donar({
         {message ? <p className="text-xs text-rose-600 font-medium">{message}</p> : null}
 
         <button
-          className="mt-2 min-h-12 rounded-xl bg-indigo-600 px-4 text-white font-semibold text-sm shadow-sm hover:bg-indigo-700 disabled:opacity-70 transition"
+          className="mt-2 min-h-12 rounded-xl bg-[var(--donate)] px-4 text-white font-semibold text-sm shadow-sm hover:brightness-95 disabled:opacity-70 transition"
           type="submit"
           disabled={isSending || !consent}
         >

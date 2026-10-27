@@ -18,7 +18,7 @@ export function HomeView({ price, feeBps, campaignLimit, liveMinutes }: Offer) {
     <main className="home">
       <header className="home-bar">
         <Link className="brand group" href="/">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/25 transition-transform group-hover:scale-105" aria-hidden="true">
+          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-600 via-teal-500 to-teal-500 text-white shadow-md shadow-teal-500/25 transition-transform group-hover:scale-105" aria-hidden="true">
             <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.2">
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.288 15.038a5.25 5.25 0 0 1 7.424 0M5.106 11.856a9.75 9.75 0 0 1 13.788 0M12 18.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" />
             </svg>
@@ -67,7 +67,7 @@ export function HomeView({ price, feeBps, campaignLimit, liveMinutes }: Offer) {
           <article className="home-mock">
             <p className="eyebrow">{home.example}</p>
             <h2 className="text-3xl">{home.exampleTitle}</h2>
-            <p className="text-xs text-indigo-700 bg-indigo-50 border border-indigo-200/60 rounded-lg p-2.5 my-1">
+            <p className="text-xs text-teal-700 bg-teal-50 border border-teal-200/60 rounded-lg p-2.5 my-1">
               {home.call4}
             </p>
             <p className="text-sm text-[var(--muted)]">{home.exampleQuiet}</p>
