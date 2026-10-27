@@ -163,7 +163,7 @@ export default function Medicion() {
           <section className="sheet">
             <h2 className="text-2xl">{tx("Por campaña", "By campaign")}</h2>
             <div className="table-scroll">
-              <table className="data-table">
+              <table className="data-table cards-mobile">
                 <thead>
                   <tr>
                     <th>{tx("Campaña", "Campaign")}</th>
@@ -177,14 +177,14 @@ export default function Medicion() {
                 <tbody>
                   {rows.map((row) => (
                     <tr key={row.campaign.id}>
-                      <td className="font-semibold">{row.campaign.name}</td>
-                      <td className="num">{row.views}</td>
-                      <td className="num">{row.intent}</td>
-                      <td className="num">
+                      <td data-label={tx("Campaña", "Campaign")} className="font-semibold">{row.campaign.name}</td>
+                      <td data-label={tx("Visitas", "Visits")} className="num">{row.views}</td>
+                      <td data-label={tx("Quisieron donar", "Wanted to donate")} className="num">{row.intent}</td>
+                      <td data-label={tx("Donativos", "Donations")} className="num">
                         {row.pledges} <span className="text-xs text-[var(--muted)]">({percent(row.pledges, row.visitors)})</span>
                       </td>
-                      <td>{row.topOrigin ? <span className="net-label"><i className="net-dot" style={{ background: originColor(row.topOrigin) }} />{originLabel(row.topOrigin, tx)}</span> : "—"}</td>
-                      <td>
+                      <td data-label={tx("Red principal", "Top network")}>{row.topOrigin ? <span className="net-label"><i className="net-dot" style={{ background: originColor(row.topOrigin) }} />{originLabel(row.topOrigin, tx)}</span> : "—"}</td>
+                      <td data-label={tx("Detalle", "Detail")}>
                         {row.error ? (
                           <span className="text-xs text-[var(--muted)]">{row.error}</span>
                         ) : (

@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fill, useI18n, useTx } from "@/lib/i18n";
 import { api, explain, signedIn } from "@/lib/api";
-import { CampaignCards, type CampaignCard } from "../tarjetas";
+import { CampaignCards, withProgress, type CampaignCard } from "../tarjetas";
+import { Resumen } from "./resumen";
 
 type Organization = { id: string; name: string };
 type SupportVisit = { organization: string; enteredAt: string };
@@ -33,7 +34,7 @@ export default function Inicio() {
         const me = await api<{ platformOperator: boolean }>("/auth/me");
         setOperator(me.platformOperator);
         setSupport(await api<SupportVisit[]>("/support-access"));
-        if (rows[0]) setCampaigns(await api<CampaignCard[]>("/campaigns", { org: rows[0].id }));
+        if (rows[0]) setCampaigns(await withProgress(await api<CampaignCard[]>("/campaigns", { org: rows[0].id })));
       })
       .catch((error) => setMessage(explain(error)))
       .finally(() => setLoaded(true));
@@ -85,6 +86,7 @@ export default function Inicio() {
           </Link>
         </section>
       ) : null}
+      {org && campaigns.length > 0 ? <Resumen org={org.id} campaigns={campaigns} /> : null}
       {campaigns.length > 0 ? (
         <section className="flex flex-col gap-3">
           <div className="flex items-center justify-between gap-3">

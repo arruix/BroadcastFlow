@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { demoMode } from "@/lib/demo";
+import { api } from "@/lib/api";
 import { fill, useI18n, useTx } from "@/lib/i18n";
 
 export type CampaignCard = {
@@ -14,6 +15,7 @@ export type CampaignCard = {
   goalMinor?: number;
   startsOn?: string;
   endsOn?: string;
+  pledgedMinor?: number;
 };
 
 function named(table: Record<string, string>, key: string) {
@@ -40,9 +42,24 @@ export function CampaignCards({ campaigns }: { campaigns: CampaignCard[] }) {
               {campaign.name}
             </Link>
             {campaign.goalMinor ? (
-              <p className="text-sm text-[var(--muted)]">
-                {fill(t.dash.goal, { amount: (campaign.goalMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 }), currency: campaign.currency })}
-              </p>
+              <div className="card-progress">
+                {campaign.pledgedMinor !== undefined ? (
+                  <>
+                    <p className="text-sm">
+                      <strong>${(campaign.pledgedMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 })}</strong>{" "}
+                      <span className="text-[var(--muted)]">{fill(tx("de {amount} {currency}", "of {amount} {currency}"), { amount: (campaign.goalMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 }), currency: campaign.currency })}</span>
+                    </p>
+                    <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((campaign.pledgedMinor / campaign.goalMinor) * 100))}>
+                      <span style={{ width: `${Math.min(100, (campaign.pledgedMinor / campaign.goalMinor) * 100)}%` }} />
+                    </div>
+                    <p className="text-xs text-[var(--muted)]">{Math.round((campaign.pledgedMinor / campaign.goalMinor) * 100)}% {tx("de la meta", "of the goal")}</p>
+                  </>
+                ) : (
+                  <p className="text-sm text-[var(--muted)]">
+                    {fill(t.dash.goal, { amount: (campaign.goalMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 }), currency: campaign.currency })}
+                  </p>
+                )}
+              </div>
             ) : null}
             {campaign.startsOn || campaign.endsOn ? (
               <p className="text-sm text-[var(--muted)]">
@@ -62,5 +79,19 @@ export function CampaignCards({ campaigns }: { campaigns: CampaignCard[] }) {
         </article>
       ))}
     </div>
+  );
+}
+
+// Avance hacia la meta: lo calcula la API pública de la campaña (suma de donativos vigentes).
+export async function withProgress(campaigns: CampaignCard[]): Promise<CampaignCard[]> {
+  return Promise.all(
+    campaigns.map(async (campaign) => {
+      try {
+        const body = await api<{ progress?: { pledgedMinor: number } }>(`/public/campaigns/${campaign.slug}`);
+        return body.progress ? { ...campaign, pledgedMinor: body.progress.pledgedMinor } : campaign;
+      } catch {
+        return campaign;
+      }
+    }),
   );
 }

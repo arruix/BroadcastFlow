@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { demoMode } from "@/lib/demo";
 import { FormEvent, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, explain } from "@/lib/api";
@@ -98,18 +96,20 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
           </p>
         ) : null}
       </header>
-      {campaign ? (
-        <nav className="jumps" aria-label={tx("Secciones de la campaña", "Campaign sections")}>
-          <Link className="chip" href={`/campanas/${campaign.id}/tablero`}>{tx("Resultados", "Results")}</Link>
-          <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza para redes", "Social piece")}</Link>
-          {demoMode ? null : <Link className="chip" href={`/campanas/${campaign.id}/en-vivo`}>{tx("En vivo", "Live")}</Link>}
-          <Link className="chip" href={`/campanas/${campaign.id}/libro`}>{tx("Movimientos", "Money movements")}</Link>
-          <Link className="chip" href={`/c/${campaign.slug}`}>{tx("Ver página pública", "See the public page")}</Link>
-        </nav>
-      ) : null}
-      <form className="sheet" onSubmit={save}>
+      <details className="sheet notice-box" open={!notice?.publishedAt}>
+        <summary className="notice-summary">
+          <span className="font-semibold">{tx("Aviso de privacidad", "Privacy notice")}</span>
+          <span className="text-sm text-[var(--muted)]">
+            {notice?.publishedAt
+              ? tx(`Versión ${notice.version} publicada`, `Version ${notice.version} published`)
+              : notice
+                ? tx(`Versión ${notice.version} en borrador`, `Version ${notice.version} in draft`)
+                : tx("Pendiente: dinos quién recibe los datos de quienes donan y para qué", "Pending: who receives donors' data and why")}
+          </span>
+        </summary>
+      <form className="flex flex-col gap-4 pt-4" onSubmit={save}>
         <label className="flex flex-col gap-1">
-          {tx("Responsable", "Controller")}
+          {tx("Responsable (persona u organización)", "Controller (person or organization)")}
           <input className="min-h-11 rounded border px-3" value={controller} onChange={(event) => setController(event.target.value)} required />
         </label>
         <label className="flex flex-col gap-1">
@@ -117,11 +117,11 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
           <input className="min-h-11 rounded border px-3" value={purpose} onChange={(event) => setPurpose(event.target.value)} required />
         </label>
         <label className="flex flex-col gap-1">
-          {tx("Datos", "Data")}
+          {tx("Datos que se piden", "Data collected")}
           <input className="min-h-11 rounded border px-3" value={dataCategories} onChange={(event) => setDataCategories(event.target.value)} required />
         </label>
         <label className="flex flex-col gap-1">
-          {tx("Plazo", "Retention")}
+          {tx("Plazo de conservación", "Retention period")}
           <input className="min-h-11 rounded border px-3" value={retention} onChange={(event) => setRetention(event.target.value)} required />
         </label>
         {message ? <p className="note">{message}</p> : null}
@@ -129,7 +129,7 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
           {tx("Guardar borrador", "Save draft")}
         </button>
       </form>
-      {notice?.publishedAt ? <p className="note">{tx(`Versión ${notice.version} publicada.`, `Version ${notice.version} published.`)}</p> : null}
+      </details>
       <div className="flex flex-wrap gap-2">
         {notice && !notice.publishedAt ? (
           <button className="quiet" type="button" onClick={publish}>

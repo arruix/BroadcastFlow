@@ -327,7 +327,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
         </div>
         <h3 className="text-lg font-semibold">{tx("Por red", "By network")}</h3>
         <div className="table-scroll">
-          <table className="data-table">
+          <table className="data-table cards-mobile">
             <thead>
               <tr>
                 <th>{tx("Red", "Network")}</th>
@@ -342,13 +342,13 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
                 const cpc = metrics?.origins.find((item) => item.origin === row.origin)?.cpcMinor ?? null;
                 return (
                   <tr key={row.origin}>
-                    <td>{originLabel(row.origin, tx)}</td>
-                    <td className="num">{row.visitors}</td>
-                    <td className="num">
+                    <td data-label={tx("Red", "Network")}>{originLabel(row.origin, tx)}</td>
+                    <td data-label={tx("Personas", "People")} className="num">{row.visitors}</td>
+                    <td data-label={tx("Donativos", "Donations")} className="num">
                       {row.pledges} <span className="text-xs text-[var(--muted)]">({percent(row.conversion)})</span>
                     </td>
-                    <td className="num">{(row.amountMinor / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
-                    <td className="num">{metrics?.cpcVisible ? (cpc === null ? "—" : (cpc / 100).toFixed(2)) : percent(row.conversion)}</td>
+                    <td data-label={tx("Monto", "Amount")} className="num">{(row.amountMinor / 100).toLocaleString("es-MX", { minimumFractionDigits: 2 })}</td>
+                    <td data-label={metrics?.cpcVisible ? tx("Costo por clic", "Cost per click") : tx("Conversión", "Conversion")} className="num">{metrics?.cpcVisible ? (cpc === null ? "—" : (cpc / 100).toFixed(2)) : percent(row.conversion)}</td>
                   </tr>
                 );
               })}
@@ -357,7 +357,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
         </div>
         <h3 className="text-lg font-semibold">{tx("Cómo pagaron", "How they paid")}</h3>
         <div className="table-scroll">
-          <table className="data-table">
+          <table className="data-table cards-mobile">
             <thead>
               <tr>
                 <th>{tx("Red", "Network")}</th>
@@ -368,9 +368,9 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
             <tbody>
               {conversion?.origins.map((row) => (
                 <tr key={row.origin}>
-                  <td>{originLabel(row.origin, tx)}</td>
-                  <td className="num">{row.payLinkClicks}</td>
-                  <td className="num">{row.payTransferViews}</td>
+                  <td data-label={tx("Red", "Network")}>{originLabel(row.origin, tx)}</td>
+                  <td data-label={tx("Abrieron enlace de pago", "Opened payment link")} className="num">{row.payLinkClicks}</td>
+                  <td data-label={tx("Vieron la CLABE", "Saw the CLABE")} className="num">{row.payTransferViews}</td>
                 </tr>
               ))}
             </tbody>
@@ -380,7 +380,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
           <>
             <h3 className="text-lg font-semibold">{tx("Por enlace (UTM)", "By link (UTM)")}</h3>
             <div className="table-scroll">
-              <table className="data-table">
+              <table className="data-table cards-mobile">
                 <thead>
                   <tr>
                     <th>{tx("Fuente / medio", "Source / medium")}</th>
@@ -393,13 +393,13 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
                 <tbody>
                   {conversion.rows.map((row, index) => (
                     <tr key={index}>
-                      <td>{row.utmSource ?? "—"} / {row.utmMedium ?? "—"}</td>
-                      <td>{row.utmCampaign ?? "—"}{row.utmContent ? ` / ${row.utmContent}` : ""}</td>
-                      <td className="num">{row.visitors}</td>
-                      <td className="num">
+                      <td data-label={tx("Fuente / medio", "Source / medium")}>{row.utmSource ?? "—"} / {row.utmMedium ?? "—"}</td>
+                      <td data-label={tx("Campaña / contenido", "Campaign / content")}>{row.utmCampaign ?? "—"}{row.utmContent ? ` / ${row.utmContent}` : ""}</td>
+                      <td data-label={tx("Personas", "People")} className="num">{row.visitors}</td>
+                      <td data-label={tx("Donativos", "Donations")} className="num">
                         {row.pledges} <span className="text-xs text-[var(--muted)]">({percent(row.conversion)})</span>
                       </td>
-                      <td className="num">{row.payLinkClicks + row.payTransferViews}</td>
+                      <td data-label={tx("Pagos abiertos", "Payments opened")} className="num">{row.payLinkClicks + row.payTransferViews}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useI18n, useTx } from "@/lib/i18n";
 import { api, explain, signedIn } from "@/lib/api";
-import { CampaignCards, type CampaignCard } from "../tarjetas";
+import { CampaignCards, withProgress, type CampaignCard } from "../tarjetas";
 
 export default function Campanas() {
   const { t } = useI18n();
@@ -19,7 +19,7 @@ export default function Campanas() {
       return;
     }
     api<{ id: string }[]>("/organizations")
-      .then(async (rows) => (rows[0] ? api<CampaignCard[]>("/campaigns", { org: rows[0].id }) : []))
+      .then(async (rows) => (rows[0] ? withProgress(await api<CampaignCard[]>("/campaigns", { org: rows[0].id })) : []))
       .then(setCampaigns)
       .catch((error) => setMessage(explain(error)))
       .finally(() => setLoaded(true));
