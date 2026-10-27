@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { demoMode, visibleInDemo } from "@/lib/demo";
 import { usePathname, useRouter } from "next/navigation";
@@ -223,7 +224,7 @@ function NavIcon({ id: raw }: { id: string }) {
       <nav className={open ? "rail is-open" : "rail"} aria-label={t.nav.console}>
         <div className="mb-4 flex items-center justify-between gap-2 px-2">
           <Link className="brand group" href="/tablero">
-            <img className="h-8 w-8 rounded-xl transition-transform group-hover:scale-105" src="/marca-broadcastflow-64.svg" alt="" width={32} height={32} />
+            <Image className="h-8 w-8 rounded-xl transition-transform group-hover:scale-105" src="/marca-broadcastflow-64.svg" alt="" width={32} height={32} unoptimized />
             <span className="rail-label flex flex-col leading-tight">
               <span className="font-bold text-slate-900 tracking-tight">BroadcastFlow</span>
               <span className="brand-by">by Mezkit Studios</span>

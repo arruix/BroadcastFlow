@@ -1830,3 +1830,7 @@ a.header-create:focus-visible {
   .console-header .header-create { padding-inline: 0.6rem; }
   .console-header a[href="/equipo"] { display: none; }
 }
+.notice-box > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; }
+.notice-box > summary::-webkit-details-marker { display: none; }
+.notice-box > summary::after { content: "▾"; color: var(--muted); }
+.notice-box[open] > summary::after { content: "▴"; }
