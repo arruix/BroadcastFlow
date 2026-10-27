@@ -314,18 +314,22 @@ function Lugar() {
         <p className="place-name">{campaign.name}</p>
       </div>
       {status ? <span className={`status status-${status}`}>{t.status[status as keyof typeof t.status] ?? status}</span> : null}
-      <nav className="jumps ml-auto" aria-label={campaign.name}>
-        <Link className="chip" href={`/campanas/${campaignId}/tablero`}>{t.nav.results}</Link>
-        <Link className="chip" href={`/campanas/${campaignId}/pieza`}>{t.nav.pieces}</Link>
-        <Link className="chip" href={`/campanas/${campaignId}`}>{t.screens.noticesTitle}</Link>
-        <Link className="chip" href={`/campanas/${campaignId}/libro`}>{t.dash.ledger}</Link>
-        {demoMode ? null : (
-          <Link className="chip text-rose-600 border-rose-200 hover:bg-rose-50" href={`/campanas/${campaignId}/en-vivo`}>
-            <span className="inline-block w-2 h-2 rounded-full bg-rose-500 mr-1.5 animate-pulse" />
-            Live
+      <nav className="tabs campaign-tabs" aria-label={campaign.name}>
+        {[
+          { href: `/campanas/${campaignId}`, label: t.screens.summaryTab },
+          { href: `/campanas/${campaignId}/tablero`, label: t.nav.results },
+          { href: `/campanas/${campaignId}/pieza`, label: t.nav.pieces },
+          ...(demoMode ? [] : [{ href: `/campanas/${campaignId}/en-vivo`, label: "Live" }]),
+        ].map((tab) => (
+          <Link key={tab.href} className="tab" href={tab.href} aria-current={pathname === tab.href ? "page" : undefined}>
+            {tab.label}
           </Link>
-        )}
-        {campaign.slug ? <Link className="chip" href={`/c/${campaign.slug}`}>{t.header.publicPage}</Link> : null}
+        ))}
+        <span className="tabs-gap" aria-hidden="true" />
+        <Link className="tab tab-money" href={`/campanas/${campaignId}/libro`} aria-current={pathname === `/campanas/${campaignId}/libro` ? "page" : undefined}>
+          {t.nav.money}
+        </Link>
+        {campaign.slug ? <Link className="tab" href={`/c/${campaign.slug}`}>{t.header.publicPage} ↗</Link> : null}
       </nav>
     </div>
   );
