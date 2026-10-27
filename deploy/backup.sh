@@ -8,6 +8,10 @@ docker compose -f docker-compose.prod.yml exec -T postgres pg_dump -U broadcastf
 mv "$F.tmp" "$F"; chmod 600 "$F"
 ls -1t "$DIR"/broadcastflow-*.dump.gz | tail -n +8 | xargs -r rm -f
 if rclone listremotes 2>/dev/null | grep -q '^r2:'; then
-  rclone copy "$F" r2:broadcastflow-backups/daily/ --s3-no-check-bucket
+  rclone copy "$F" r2:broadcastflow-backups/ --s3-no-check-bucket
+  rclone lsf r2:broadcastflow-backups/ --s3-no-check-bucket | grep -qx "$(basename "$F")"
+  echo "$(date -Is) r2 ok r2:broadcastflow-backups/$(basename "$F")"
+else
+  echo "$(date -Is) r2 omitido: no hay remoto rclone r2" >&2
 fi
 echo "ok $F"
