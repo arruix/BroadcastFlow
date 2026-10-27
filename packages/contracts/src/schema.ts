@@ -1414,6 +1414,17 @@ export interface components {
             live?: {
                 playbackUrl: string;
             } | null;
+            /**
+             * Format: int64
+             * @description Meta de la campaña en centavos, si la fijó la organización.
+             */
+            goalMinor?: number | null;
+            /** @description Avance público. Suma donativos comprometidos (pendientes, por confirmar y liquidados); excluye fallidos, reembolsados y disputados. */
+            progress?: {
+                /** Format: int64 */
+                pledgedMinor: number;
+                donors: number;
+            };
         };
         DonationStart: {
             /** Format: int64 */

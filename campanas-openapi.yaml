@@ -1767,6 +1767,18 @@ components:
           required: [playbackUrl]
           properties:
             playbackUrl: { type: string }
+        goalMinor:
+          type: integer
+          format: int64
+          nullable: true
+          description: Meta de la campaña en centavos, si la fijó la organización.
+        progress:
+          type: object
+          description: Avance público. Suma donativos comprometidos (pendientes, por confirmar y liquidados); excluye fallidos, reembolsados y disputados.
+          required: [pledgedMinor, donors]
+          properties:
+            pledgedMinor: { type: integer, format: int64 }
+            donors: { type: integer }
     DonationStart:
       type: object
       required: [amountMinor, currency, donorName, donorEmail]
