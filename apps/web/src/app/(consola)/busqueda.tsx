@@ -10,10 +10,13 @@ import { api, signedIn } from "@/lib/api";
 type Campaign = { id: string; name: string; slug: string; status: string; kind: string; organization: string };
 
 const sections = [
+  { id: "home", path: () => "/tablero" },
+  { id: "money", path: () => "/dinero" },
+  { id: "settings", path: () => "/ajustes" },
   { id: "board", path: (campaignId: string | null) => (campaignId ? `/campanas/${campaignId}/tablero` : "/medicion") },
   { id: "spend", path: (campaignId: string | null) => (campaignId ? `/campanas/${campaignId}/tablero#gasto` : "/gasto") },
   { id: "disputes", path: (campaignId: string | null) => (campaignId ? `/campanas/${campaignId}/libro#disputas` : "/disputas") },
-  { id: "campaigns", path: () => "/tablero" },
+  { id: "campaigns", path: () => "/campanas" },
   { id: "pieces", path: (campaignId: string | null) => (campaignId ? `/campanas/${campaignId}/pieza` : "/piezas") },
   { id: "schedule", path: (campaignId: string | null) => (campaignId ? `/campanas/${campaignId}/pieza#programar` : "/programacion") },
   { id: "connections", path: () => "/conexiones" },

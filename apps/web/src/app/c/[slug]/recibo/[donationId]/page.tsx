@@ -70,17 +70,17 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
         </p>
       </div>
 
-      <div className="flex items-start gap-3 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/90 to-violet-50/70 p-4 text-xs text-indigo-950 shadow-2xs">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs">
+      <div className="flex items-start gap-3 rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/90 to-teal-50/70 p-4 text-xs text-teal-950 shadow-2xs">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-teal-600 text-white shadow-2xs">
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.59 14.37a6 6 0 0 1-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 0 0 6.16-12.12A14.98 14.98 0 0 0 9.631 8.41m5.96 5.96a14.926 14.926 0 0 1-5.841 2.58m-.119-8.54a6 6 0 0 0-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 0 0-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 0 1-2.448-2.448 14.9 14.9 0 0 1 .06-.312m0 0L21 3" />
           </svg>
         </div>
         <div>
-          <span className="font-bold text-indigo-950 block mb-0.5">
+          <span className="font-bold text-teal-950 block mb-0.5">
             {tx("Más tiempo de difusión en redes sociales", "More broadcast airtime on social networks")}
           </span>
-          <p className="text-indigo-900/90 leading-snug">
+          <p className="text-teal-900/90 leading-snug">
             {tx(
               "Entre más donaciones se reciben, más tiempo permanece la campaña activa y visible en las redes sociales conectadas.",
               "The more donations received, the longer the campaign remains active and visible across connected social networks."
@@ -110,7 +110,7 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
         </div>
         <div className="flex justify-between items-center pt-3 border-t border-slate-100 font-semibold text-base">
           <span className="text-slate-900">{tx("Neto para la causa", "Net for the cause")}</span>
-          <span className="text-indigo-600 font-bold">{money(receipt.netMinor)} {receipt.currency}</span>
+          <span className="text-teal-600 font-bold">{money(receipt.netMinor)} {receipt.currency}</span>
         </div>
       </div>
 

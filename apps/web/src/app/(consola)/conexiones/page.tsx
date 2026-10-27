@@ -79,7 +79,7 @@ export default function Conexiones() {
           onClick={() => setShowConfigHelp(!showConfigHelp)}
           className="chip flex items-center gap-1.5"
         >
-          <svg className="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg className="w-4 h-4 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           {showConfigHelp ? tx("Ocultar guía", "Hide guide") : tx("Guía de configuración", "Configuration guide")}
@@ -99,9 +99,9 @@ export default function Conexiones() {
 
       {/* Guide Card (collapsible) */}
       {showConfigHelp ? (
-        <section className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/70 to-slate-50 p-6 flex flex-col gap-4 text-sm text-slate-700 shadow-2xs">
+        <section className="rounded-2xl border border-teal-100 bg-gradient-to-r from-teal-50/70 to-slate-50 p-6 flex flex-col gap-4 text-sm text-slate-700 shadow-2xs">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white shadow-2xs">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-teal-600 text-white shadow-2xs">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
               </svg>

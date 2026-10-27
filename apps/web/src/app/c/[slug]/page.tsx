@@ -3,6 +3,10 @@ import { demoMode } from "@/lib/demo";
 import { notFound } from "next/navigation";
 import { Idioma } from "@/lib/i18n";
 import { pick, serverLocale } from "@/lib/locale";
+
+function fillText(text: string, values: Record<string, string>) {
+  return text.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "");
+}
 import { MetodoPago, type PaymentMethod } from "./metodo-pago";
 import { Donar } from "./donar";
 import { Pixel } from "./pixel";
@@ -23,7 +27,13 @@ type PublicCampaign = {
     retention: string;
   } | null;
   live: { playbackUrl: string } | null;
+  goalMinor?: number | null;
+  progress?: { pledgedMinor: number; donors: number };
 };
+
+function amount(minor: number, currency: string) {
+  return `$${(minor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 })} ${currency}`;
+}
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
@@ -83,76 +93,110 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
   const campaign = (await response.json()) as PublicCampaign;
   const hasExternal = Boolean(campaign.paymentMethod?.link || campaign.paymentMethod?.transfer);
 
+  const cover = campaign.share?.imageKey?.startsWith("https://") ? campaign.share.imageKey : null;
+  const story = campaign.share?.description ?? null;
+  const pledged = campaign.progress?.pledgedMinor ?? 0;
+  const donors = campaign.progress?.donors ?? 0;
+  const goal = campaign.goalMinor ?? null;
+  const share = goal ? Math.min(100, Math.round((pledged / goal) * 100)) : null;
+
   return (
-    <main className="mx-auto grid min-h-screen max-w-5xl items-start gap-8 px-4 py-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <div className="public-page">
       {campaign.notice ? <Pixel slug={campaign.slug} /> : null}
-      <section className="flex flex-col gap-6">
-        <div className="flex items-center justify-between gap-3">
-          <p className="eyebrow flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-indigo-600" />
-            {tx("Página oficial de campaña", "Official campaign page")}
-          </p>
-          <Idioma />
-        </div>
-        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">{campaign.name}</h1>
-        {campaign.live ? (
-          <figure className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="flex h-3 w-3 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-rose-600 bg-rose-50 border border-rose-200 px-2.5 py-0.5 rounded-full">{tx("En vivo", "Live")}</span>
-            </div>
-            <video className="w-full rounded-xl bg-slate-950 shadow-md" controls src={campaign.live.playbackUrl} />
-          </figure>
-        ) : null}
-        {demoMode ? null : (
-        <div className="flex items-start gap-3.5 rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50/90 via-violet-50/70 to-purple-50/90 p-4 text-slate-800 shadow-2xs">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-2xs">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+      <header className="public-top">
+        <p className="eyebrow flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
+          {tx("Página oficial de campaña", "Official campaign page")}
+        </p>
+        <Idioma />
+      </header>
+      <main className="mx-auto grid max-w-5xl items-start gap-8 px-4 pb-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
+        <section className="flex flex-col gap-6">
+          <div className="public-cover">
+            {cover ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={cover} alt="" />
+            ) : (
+              <span aria-hidden="true">{campaign.name.slice(0, 1)}</span>
+            )}
           </div>
-          <div className="flex flex-col gap-0.5">
-            <h2 className="text-sm font-bold text-slate-900">
-              {tx("Impacto en redes sociales", "Social media impact")}
-            </h2>
-            <p className="text-sm text-slate-600">
-              {tx(
-                "Entre más donaciones reciba esta campaña, más tiempo permanecerá transmitiendo y activa en las redes sociales.",
-                "The more donations this campaign receives, the longer it will remain broadcasting and active on social networks."
-              )}
+          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">{campaign.name}</h1>
+          {campaign.live ? (
+            <figure className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-3 w-3">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
+                </span>
+                <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-600">{tx("En vivo", "Live")}</span>
+              </div>
+              <video className="w-full rounded-xl bg-slate-950 shadow-md" controls src={campaign.live.playbackUrl} />
+            </figure>
+          ) : null}
+          {story ? <p className="public-story">{story}</p> : null}
+          {demoMode ? null : (
+            <div className="flex items-start gap-3.5 rounded-2xl border border-teal-100 bg-teal-50/70 p-4 text-slate-800">
+              <div className="flex flex-col gap-0.5">
+                <h2 className="text-sm font-bold text-slate-900">{tx("Impacto en redes sociales", "Social media impact")}</h2>
+                <p className="text-sm text-slate-600">
+                  {tx(
+                    "Entre más donaciones reciba esta campaña, más tiempo permanecerá transmitiendo y activa en las redes sociales.",
+                    "The more donations this campaign receives, the longer it will remain broadcasting and active on social networks.",
+                  )}
+                </p>
+              </div>
+            </div>
+          )}
+          {!campaign.notice ? (
+            <p className="note">{tx("El aviso sigue en borrador. Esta página no mide ni cobra.", "The notice is still a draft. This page does not measure or charge.")}</p>
+          ) : null}
+        </section>
+        <aside className="panel donate-card flex flex-col gap-4 p-5 lg:sticky lg:top-6">
+          <div className="flex flex-col gap-2">
+            <p className="text-3xl font-extrabold text-slate-900">{amount(pledged, campaign.currency)}</p>
+            <p className="text-sm text-[var(--muted)]">
+              {goal
+                ? fillText(tx("comprometidos de una meta de {goal}", "pledged of a {goal} goal"), { goal: amount(goal, campaign.currency) })
+                : tx("comprometidos", "pledged")}
+            </p>
+            {share !== null ? (
+              <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={share} aria-label={tx("Avance de la meta", "Goal progress")}>
+                <span style={{ width: `${Math.max(2, share)}%` }} />
+              </div>
+            ) : null}
+            <p className="text-sm text-slate-700">
+              {share !== null ? `${share}% · ` : ""}
+              {donors === 1 ? tx("1 donativo", "1 donation") : fillText(tx("{n} donativos", "{n} donations"), { n: String(donors) })}
             </p>
           </div>
-        </div>
-        )}
+          {campaign.donateEnabled && hasExternal ? <MetodoPago slug={campaign.slug} method={campaign.paymentMethod!} /> : null}
+          {campaign.donateEnabled && hasExternal ? (
+            <details>
+              <summary>{tx("¿Solo quieres registrar tu intención de donar?", "Just want to register your intent to donate?")}</summary>
+              <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} />
+            </details>
+          ) : null}
+          {campaign.donateEnabled && !hasExternal ? <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} /> : null}
+          {campaign.status === "pausada" ? <p>{tx("La página está en pausa.", "The page is paused.")}</p> : null}
+          {campaign.notice && !campaign.donateEnabled && campaign.status !== "pausada" ? (
+            <p>{tx("Donar se enciende cuando la campaña está activa.", "Donate turns on when the campaign is active.")}</p>
+          ) : null}
+        </aside>
+      </main>
+      <footer className="public-footer">
         {campaign.notice ? (
-          <article id="aviso" className="flex flex-col gap-2 rounded border p-5">
-            <h2 className="text-2xl">{tx("Aviso de privacidad", "Privacy notice")}</h2>
-            <p>{tx("Responsable", "Controller")}: {campaign.notice.controller}</p>
-            <p>{tx("Finalidad", "Purpose")}: {campaign.notice.purpose}</p>
-            <p>{tx("Datos", "Data")}: {campaign.notice.dataCategories}</p>
-            <p>{tx("Plazo", "Retention")}: {campaign.notice.retention}</p>
-          </article>
-        ) : (
-          <p className="note">{tx("El aviso sigue en borrador. Esta página no mide ni cobra.", "The notice is still a draft. This page does not measure or charge.")}</p>
-        )}
-      </section>
-      <section className="panel flex flex-col gap-4 p-5 lg:sticky lg:top-6">
-        {campaign.donateEnabled && hasExternal ? <MetodoPago slug={campaign.slug} method={campaign.paymentMethod!} /> : null}
-        {campaign.donateEnabled && hasExternal ? (
-          <details>
-            <summary>{tx("¿Solo quieres registrar tu intención de donar?", "Just want to register your intent to donate?")}</summary>
-            <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} />
+          <details id="aviso">
+            <summary>{tx("Aviso de privacidad", "Privacy notice")}</summary>
+            <div className="flex flex-col gap-1 pt-2">
+              <p>{tx("Responsable", "Controller")}: {campaign.notice.controller}</p>
+              <p>{tx("Finalidad", "Purpose")}: {campaign.notice.purpose}</p>
+              <p>{tx("Datos", "Data")}: {campaign.notice.dataCategories}</p>
+              <p>{tx("Plazo", "Retention")}: {campaign.notice.retention}</p>
+            </div>
           </details>
         ) : null}
-        {campaign.donateEnabled && !hasExternal ? <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} /> : null}
-        {campaign.status === "pausada" ? <p>{tx("La página está en pausa.", "The page is paused.")}</p> : null}
-        {campaign.notice && !campaign.donateEnabled && campaign.status !== "pausada" ? (
-          <p>{tx("Donar se enciende cuando la campaña está activa.", "Donate turns on when the campaign is active.")}</p>
-        ) : null}
-      </section>
-    </main>
+        <p>BroadcastFlow</p>
+      </footer>
+    </div>
   );
 }

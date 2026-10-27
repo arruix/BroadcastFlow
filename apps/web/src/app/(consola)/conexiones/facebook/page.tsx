@@ -73,14 +73,14 @@ export default function FacebookConnect() {
       </p>
 
       {/* Instant Demo Connection Button */}
-      <div className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 to-violet-50/50 p-5 shadow-2xs flex flex-col gap-3">
+      <div className="rounded-2xl border border-teal-100 bg-gradient-to-br from-teal-50/80 to-teal-50/50 p-5 shadow-2xs flex flex-col gap-3">
         <div className="flex items-center gap-2">
-          <span className="flex h-2 w-2 rounded-full bg-indigo-600" />
-          <h2 className="text-sm font-bold text-indigo-950">
+          <span className="flex h-2 w-2 rounded-full bg-teal-600" />
+          <h2 className="text-sm font-bold text-teal-950">
             {tx("Modo de desarrollo rápido", "Quick development mode")}
           </h2>
         </div>
-        <p className="text-xs text-indigo-900/90 leading-relaxed">
+        <p className="text-xs text-teal-900/90 leading-relaxed">
           {tx(
             "¿Quieres probar la publicación y transmisión de inmediato sin configurar credenciales de Meta? Conecta una Página verificada de prueba con un solo clic.",
             "Want to test publishing and broadcasting immediately without setting up Meta credentials? Connect a verified test Page with one click."
@@ -90,7 +90,7 @@ export default function FacebookConnect() {
           type="button"
           onClick={() => handleConnect("fb_pagina_oficial_demo")}
           disabled={!state || loading}
-          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-indigo-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-60 transition"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-600 px-4 text-sm font-semibold text-white shadow-sm hover:bg-teal-700 disabled:opacity-60 transition"
         >
           {loading ? tx("Conectando...", "Connecting...") : tx("⚡ Conectar Página Demo (Pruebas)", "⚡ Connect Demo Page (Testing)")}
         </button>
@@ -104,7 +104,7 @@ export default function FacebookConnect() {
         <label className="flex flex-col gap-1 text-sm font-medium text-slate-700">
           {tx("Identificador de la Página (Page ID)", "Page Identifier (Page ID)")}
           <input
-            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-900 focus:border-indigo-500 focus:outline-hidden"
+            className="min-h-11 rounded-xl border border-slate-200 bg-white px-3 font-mono text-sm text-slate-900 focus:border-teal-500 focus:outline-hidden"
             placeholder="ej. 10928374652"
             value={pageId}
             onChange={(event) => setPageId(event.target.value)}
@@ -114,7 +114,7 @@ export default function FacebookConnect() {
         <label className="flex min-h-11 items-center gap-2.5 text-sm font-medium text-slate-800">
           <input
             type="checkbox"
-            className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+            className="h-4 w-4 rounded border-slate-300 text-teal-600 focus:ring-teal-500"
             checked={canPublish}
             onChange={(event) => setCanPublish(event.target.checked)}
           />
@@ -156,7 +156,7 @@ export default function FacebookConnect() {
           {back === "/empezar" ? tx("← Volver al asistente", "← Back to setup") : tx("← Volver a conexiones", "← Back to connections")}
         </Link>
         {saved ? (
-          <Link className="inline-flex min-h-10 items-center rounded-xl bg-indigo-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-indigo-700 transition" href="/conexiones">
+          <Link className="inline-flex min-h-10 items-center rounded-xl bg-teal-600 px-4 text-xs font-semibold text-white shadow-sm hover:bg-teal-700 transition" href="/conexiones">
             {tx("Ver en panel de conexiones →", "View in connections dashboard →")}
           </Link>
         ) : null}

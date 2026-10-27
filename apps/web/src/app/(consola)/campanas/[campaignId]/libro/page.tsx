@@ -173,8 +173,8 @@ export default function Libro({ params }: { params: Promise<{ campaignId: string
   return (
     <main className="console-page">
       <header className="flex flex-col gap-2">
-        <p className="eyebrow">{tx("Libro", "Ledger")}</p>
-        <h1 className="text-4xl">{book?.campaignName ?? tx("Libro", "Ledger")}</h1>
+        <p className="eyebrow">{tx("Movimientos", "Money movements")}</p>
+        <h1 className="text-4xl">{book?.campaignName ?? tx("Movimientos", "Money movements")}</h1>
       </header>
       {message ? <p className="note">{message}</p> : null}
       {book ? (
@@ -249,8 +249,8 @@ export default function Libro({ params }: { params: Promise<{ campaignId: string
       </form>
       </section>
       <section id="disputas" className="sheet">
-        <h2 className="text-2xl">{tx("Disputas", "Disputes")}</h2>
-        {disputes.length === 0 ? <p className="note">{tx("No hay disputas abiertas.", "There are no open disputes.")}</p> : null}
+        <h2 className="text-2xl">{tx("Reclamos de pago", "Payment claims")}</h2>
+        {disputes.length === 0 ? <p className="note">{tx("No hay reclamos de pago abiertos.", "There are no open payment claims.")}</p> : null}
         <div className="flex flex-col gap-2">
           {disputes.map((dispute) => (
             <article key={dispute.donationId} className="row">

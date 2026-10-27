@@ -10,18 +10,35 @@ import { api, clearSession, signedIn } from "@/lib/api";
 
 type Campaign = { id: string; name?: string; status?: string; slug?: string };
 
+// Cinco secciones. Lo administrativo (Equipo, Seguridad, Plan, Conexiones) vive en Ajustes;
+// Gasto, Movimientos y Reclamos viven en Dinero.
 const entries = [
-  { id: "board", path: (id: string | null) => (id ? `/campanas/${id}/tablero` : "/medicion") },
-  { id: "spend", path: (id: string | null) => (id ? `/campanas/${id}/tablero#gasto` : "/gasto") },
-  { id: "disputes", path: (id: string | null) => (id ? `/campanas/${id}/libro#disputas` : "/disputas") },
-  { id: "campaigns", path: () => "/tablero" },
-  { id: "pieces", path: (id: string | null) => (id ? `/campanas/${id}/pieza` : "/piezas") },
-  { id: "schedule", path: (id: string | null) => (id ? `/campanas/${id}/pieza#programar` : "/programacion") },
-  { id: "connections", path: () => "/conexiones" },
-  { id: "notices", path: (id: string | null) => (id ? `/campanas/${id}` : "/avisos") },
-  { id: "security", path: () => "/seguridad" },
-  { id: "plan", path: () => "/plan" },
+  { id: "home", path: () => "/tablero" },
+  { id: "campaigns", path: () => "/campanas" },
+  { id: "results", path: () => "/medicion" },
+  { id: "money", path: () => "/dinero" },
+  { id: "settings", path: () => "/ajustes" },
 ] as const;
+
+export type Section = (typeof entries)[number]["id"];
+
+// Qué sección del menú corresponde a una ruta. Una sola sección queda marcada.
+export function sectionFor(pathname: string, hash = ""): Section | null {
+  if (pathname === "/tablero" || pathname === "/avisos") return "home";
+  if (/^\/campanas\/[^/]+\/tablero$/.test(pathname)) return hash === "#gasto" ? "money" : "results";
+  if (pathname === "/medicion") return "results";
+  if (/^\/campanas\/[^/]+\/libro$/.test(pathname)) return "money";
+  if (["/dinero", "/gasto", "/disputas"].includes(pathname)) return "money";
+  if (pathname === "/campanas" || pathname.startsWith("/campanas/") || pathname === "/piezas" || pathname === "/programacion") return "campaigns";
+  if (
+    ["/ajustes", "/equipo", "/seguridad", "/organizacion"].includes(pathname) ||
+    pathname.startsWith("/plan") ||
+    pathname.startsWith("/conexiones") ||
+    pathname.startsWith("/invitar")
+  )
+    return "settings";
+  return null;
+}
 
 export function ConsolaShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
@@ -60,7 +77,7 @@ export function Riel({ open, onClose, onCollapse }: { open: boolean; onClose: ()
   const pathname = usePathname();
   const router = useRouter();
   const [hash, setHash] = useState("");
-  const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [, setCampaignId] = useState<string | null>(null);
   const [operator, setOperator] = useState(false);
 
   useEffect(() => {
@@ -100,26 +117,25 @@ export function Riel({ open, onClose, onCollapse }: { open: boolean; onClose: ()
     };
   }, [pathname, router]);
 
-  function current(id: (typeof entries)[number]["id"]) {
-    const campaignBoard = /^\/campanas\/[^/]+\/tablero$/.test(pathname);
-    const campaignPiece = /^\/campanas\/[^/]+\/pieza$/.test(pathname);
-    const campaignBook = /^\/campanas\/[^/]+\/libro$/.test(pathname);
-    const campaignNotice = /^\/campanas\/[^/]+$/.test(pathname);
-    if (id === "campaigns") return pathname === "/tablero" || pathname === "/campanas/nueva";
-    if (id === "board") return pathname === "/medicion" || (campaignBoard && hash !== "#gasto");
-    if (id === "spend") return pathname === "/gasto" || (campaignBoard && hash === "#gasto");
-    if (id === "disputes") return pathname === "/disputas" || (campaignBook && hash === "#disputas");
-    if (id === "pieces") return pathname === "/piezas" || (campaignPiece && hash !== "#programar");
-    if (id === "schedule") return pathname === "/programacion" || (campaignPiece && hash === "#programar");
-    if (id === "connections") return pathname.startsWith("/conexiones");
-    if (id === "notices") return pathname === "/avisos" || campaignNotice;
-    if (id === "security") return pathname === "/seguridad";
-    if (id === "plan") return pathname.startsWith("/plan");
-    return false;
+  function current(id: Section) {
+    return sectionFor(pathname, hash) === id;
   }
 
-function NavIcon({ id }: { id: string }) {
+function NavIcon({ id: raw }: { id: string }) {
+  const id = ({ home: "home", results: "board", money: "spend", settings: "settings" } as Record<string, string>)[raw] ?? raw;
   switch (id) {
+    case "home":
+      return (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+        </svg>
+      );
+    case "settings":
+      return (
+        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
+        </svg>
+      );
     case "board":
       return (
         <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.8">
@@ -220,7 +236,7 @@ function NavIcon({ id }: { id: string }) {
           </button>
         </div>
         {entries.filter((entry) => visibleInDemo(entry.id)).map((entry) => {
-          const href = entry.path(campaignId);
+          const href = entry.path();
           return (
             <Link key={entry.id} className="rail-link" href={href} aria-current={current(entry.id) ? "page" : undefined} title={t.nav[entry.id]}>
               <span className="rail-mark" aria-hidden="true">
@@ -231,7 +247,7 @@ function NavIcon({ id }: { id: string }) {
           );
         })}
         {operator ? (
-          <Link className="rail-link" href="/plataforma" title={t.nav.platform}>
+          <Link className="rail-link" href="/plataforma" title={t.nav.platform} aria-current={pathname.startsWith("/plataforma") ? "page" : undefined}>
             <span className="rail-mark" aria-hidden="true">
               <NavIcon id="platform" />
             </span>
@@ -299,9 +315,9 @@ function Lugar() {
       </div>
       {status ? <span className={`status status-${status}`}>{t.status[status as keyof typeof t.status] ?? status}</span> : null}
       <nav className="jumps ml-auto" aria-label={campaign.name}>
-        <Link className="chip" href={`/campanas/${campaignId}/tablero`}>{t.nav.board}</Link>
+        <Link className="chip" href={`/campanas/${campaignId}/tablero`}>{t.nav.results}</Link>
         <Link className="chip" href={`/campanas/${campaignId}/pieza`}>{t.nav.pieces}</Link>
-        <Link className="chip" href={`/campanas/${campaignId}`}>{t.nav.notices}</Link>
+        <Link className="chip" href={`/campanas/${campaignId}`}>{t.screens.noticesTitle}</Link>
         <Link className="chip" href={`/campanas/${campaignId}/libro`}>{t.dash.ledger}</Link>
         {demoMode ? null : (
           <Link className="chip text-rose-600 border-rose-200 hover:bg-rose-50" href={`/campanas/${campaignId}/en-vivo`}>

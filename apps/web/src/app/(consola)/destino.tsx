@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { api, signedIn } from "@/lib/api";
+import { DineroTabs } from "./pestanas";
 
 type Campaign = { id: string; name: string };
 
@@ -84,6 +85,8 @@ export function Destino({ kind }: { kind: keyof typeof targets }) {
         <h1 className="text-4xl">{title}</h1>
         <p className="lede">{description}</p>
       </header>
+      {kind === "gasto" ? <DineroTabs current="gasto" /> : null}
+      {kind === "disputas" ? <DineroTabs current="reclamos" /> : null}
       {!entered ? (
         <Link className="inline-flex min-h-11 w-fit items-center rounded bg-neutral-900 px-4 text-white" href="/ingresar">
           {t.screens.signIn}
