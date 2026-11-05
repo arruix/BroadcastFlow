@@ -59,14 +59,19 @@ export function refreshSession(): Promise<boolean> {
 }
 
 async function refreshOnce(): Promise<boolean> {
-  const response = await fetch(`${apiUrl}/auth/refresh`, { method: "POST", credentials: "include" });
-  if (!response.ok) {
+  try {
+    const response = await fetch(`${apiUrl}/auth/refresh`, { method: "POST", credentials: "include" });
+    if (!response.ok) {
+      accessToken = null;
+      return false;
+    }
+    const body = (await response.json()) as { accessToken: string };
+    accessToken = body.accessToken;
+    return true;
+  } catch {
     accessToken = null;
     return false;
   }
-  const body = (await response.json()) as { accessToken: string };
-  accessToken = body.accessToken;
-  return true;
 }
 
 export async function download(path: string, org: string): Promise<Blob> {
