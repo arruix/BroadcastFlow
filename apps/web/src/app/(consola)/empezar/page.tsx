@@ -101,8 +101,8 @@ export default function Empezar() {
         <>
           <p>
             {tx(
-              "Conecta la Página de Facebook y el canal de YouTube. Puedes entrar al tablero y conectarlas después.",
-              "Connect the Facebook Page and the YouTube channel. You can open the board and connect them later.",
+              "Facebook y YouTube no publican ni emiten en esta versión. Puedes entrar al tablero y compartir el enlace.",
+              "Facebook and YouTube do not publish or broadcast in this version. You can open the board and share the link.",
             )}
           </p>
           <button className="min-h-11 rounded bg-neutral-900 px-4 text-white" type="button" onClick={() => connect("facebook")}>

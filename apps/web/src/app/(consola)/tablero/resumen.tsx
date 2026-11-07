@@ -110,8 +110,8 @@ export function Resumen({ org, campaigns }: { org: string; campaigns: CampaignCa
   const cards = [
     { label: tx("Visitas", "Visits"), now: data.current.views, before: data.previous.views, value: data.current.views.toLocaleString("es-MX") },
     { label: tx("Quisieron donar", "Wanted to donate"), now: data.current.intent, before: data.previous.intent, value: data.current.intent.toLocaleString("es-MX") },
-    { label: tx("Donativos registrados", "Recorded donations"), now: data.current.pledges, before: data.previous.pledges, value: data.current.pledges.toLocaleString("es-MX") },
-    { label: tx("Monto comprometido", "Pledged amount"), now: data.current.amountMinor, before: data.previous.amountMinor, value: money(data.current.amountMinor, data.currency) },
+    { label: tx("Intenciones registradas", "Recorded intentions"), now: data.current.pledges, before: data.previous.pledges, value: data.current.pledges.toLocaleString("es-MX") },
+    { label: tx("Monto de intenciones", "Intention amount"), now: data.current.amountMinor, before: data.previous.amountMinor, value: money(data.current.amountMinor, data.currency) },
   ];
   const peak = Math.max(1, ...data.series.map((point) => point.views));
   const top = Math.max(1, ...data.networks.map((row) => row.views));

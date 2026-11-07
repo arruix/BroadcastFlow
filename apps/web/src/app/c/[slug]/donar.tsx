@@ -147,8 +147,8 @@ export function Donar({
         </h2>
         <p className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-950">
           {tx(
-            "Por ahora solo registramos tu intención de donar. No se te cobrará nada ni pedimos datos de tarjeta: te avisaremos por correo cuando el pago esté habilitado.",
-            "For now we only record your intention to donate. You will not be charged and we do not ask for card details: we will email you when payment is enabled."
+            "Esto solo registra una intención. No es un pago: BroadcastFlow no cobra ni pide la tarjeta. Para pagar, usa el enlace o la CLABE de la campaña.",
+            "This only records an intention. It is not a payment: BroadcastFlow does not charge you or ask for a card. To pay, use the campaign's link or CLABE."
           )}
         </p>
       </div>

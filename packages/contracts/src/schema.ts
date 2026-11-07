@@ -1382,6 +1382,8 @@ export interface components {
         Campaign: components["schemas"]["CampaignWrite"] & {
             /** Format: uuid */
             id: string;
+            /** Format: uuid */
+            organizationId: string;
             slug: string;
             /** @enum {string} */
             status: "borrador" | "en_revision" | "programada" | "activa" | "pausada" | "cerrada" | "archivada";
@@ -1419,8 +1421,14 @@ export interface components {
              * @description Meta de la campaña en centavos, si la fijó la organización.
              */
             goalMinor?: number | null;
-            /** @description Avance público. Suma donativos comprometidos (pendientes, por confirmar y liquidados); excluye fallidos, reembolsados y disputados. */
+            /** @description Separa dinero liquidado en el libro e intenciones sin cobro. Un clic al enlace externo no liquida. pledgedMinor es la suma y no es dinero cobrado por BroadcastFlow. */
             progress?: {
+                /** Format: int64 */
+                confirmedMinor: number;
+                confirmedCount: number;
+                /** Format: int64 */
+                intentionMinor: number;
+                intentionCount: number;
                 /** Format: int64 */
                 pledgedMinor: number;
                 donors: number;
@@ -1443,7 +1451,6 @@ export interface components {
             donationId: string;
             /** Format: uuid */
             privacyNoticeId: string;
-            clientSecret: string;
         };
         DonationRecord: {
             /** Format: uuid */
@@ -1460,7 +1467,9 @@ export interface components {
             currency: string;
             /** Format: uuid */
             privacyNoticeId: string;
+            /** @description Solo en el endpoint autenticado de derechos. El GET público no lo incluye. */
             donorName?: string | null;
+            /** @description Solo en el endpoint autenticado de derechos. El GET público no lo incluye. */
             donorEmail?: string | null;
             /** Format: date-time */
             anonymizedAt?: string | null;

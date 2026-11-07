@@ -19,7 +19,11 @@ broadcastflow.mezkitstudios.com {
 	}
 	encode zstd gzip
 	handle /v1/* {
-		reverse_proxy 127.0.0.1:3001
+		reverse_proxy 127.0.0.1:3001 {
+			# El API solo cree X-Forwarded-For si este secreto coincide.
+			# Vacío = no se confía en la cabecera salvo loopback.
+			header_up X-BF-Proxy-Token {$PROXY_SHARED_SECRET:}
+		}
 	}
 	handle {
 		reverse_proxy 127.0.0.1:3000

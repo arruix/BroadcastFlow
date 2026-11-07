@@ -136,6 +136,14 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
             {tx(`Publicar versión ${notice.version}`, `Publish version ${notice.version}`)}
           </button>
         ) : null}
+        {campaign?.status === "borrador" ? (
+          <p className="note">
+            {tx(
+              "El enlace público ya abre esta campaña en borrador. El pago externo y los clics de pago aparecen al publicar el aviso y activar.",
+              "The public link already opens this draft. The external payment and payment clicks appear after you publish the notice and activate.",
+            )}
+          </p>
+        ) : null}
         {campaign?.status === "borrador" && campaign.kind !== "electoral" ? (
           <button className="min-h-11 w-fit rounded bg-neutral-900 px-4 text-white" type="button" onClick={activate}>
             {tx("Activar campaña", "Activate campaign")}

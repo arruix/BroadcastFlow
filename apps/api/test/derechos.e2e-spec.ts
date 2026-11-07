@@ -152,7 +152,8 @@ describe('historia 16', () => {
     const receipt = await request(app.getHttpServer())
       .get(`/v1/public/donations/${donated.donationId}`)
       .expect(200);
-    expect(receipt.body.donorName).toBeNull();
+    expect(receipt.body).not.toHaveProperty('donorName');
+    expect(receipt.body).not.toHaveProperty('donorEmail');
     expect(receipt.body.grossMinor).toBe(2000);
   });
 });

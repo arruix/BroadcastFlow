@@ -42,6 +42,8 @@ export class IdentidadService {
   ) {}
 
   async register(email: string, password: string) {
+    if (!this.mail.canDeliver())
+      throw new DomainException('mail_not_configured', 503);
     const normalized = normalizeEmail(email);
     if (password.length < 12) throw new DomainException('weak_password', 422);
     const passwordHash = await argon2.hash(password, { type: argon2.argon2id });
@@ -66,10 +68,12 @@ export class IdentidadService {
     } catch (error) {
       mapDbError(error);
     }
-    this.mail.send({ to: normalized, purpose: 'verify', token });
+    await this.mail.send({ to: normalized, purpose: 'verify', token });
   }
 
   async resendVerification(email: string) {
+    if (!this.mail.canDeliver())
+      throw new DomainException('mail_not_configured', 503);
     const normalized = normalizeEmail(email);
     const token = randomToken();
     let deliver = false;
@@ -89,7 +93,7 @@ export class IdentidadService {
       );
       deliver = true;
     });
-    if (deliver) this.mail.send({ to: normalized, purpose: 'verify', token });
+    if (deliver) await this.mail.send({ to: normalized, purpose: 'verify', token });
   }
 
   async verifyEmail(token: string) {
@@ -207,6 +211,8 @@ export class IdentidadService {
   }
 
   async forgotPassword(email: string) {
+    if (!this.mail.canDeliver())
+      throw new DomainException('mail_not_configured', 503);
     const normalized = normalizeEmail(email);
     const token = randomToken();
     let deliver = false;
@@ -223,7 +229,7 @@ export class IdentidadService {
       );
       deliver = true;
     });
-    if (deliver) this.mail.send({ to: normalized, purpose: 'reset', token });
+    if (deliver) await this.mail.send({ to: normalized, purpose: 'reset', token });
   }
 
   async resetPassword(token: string, password: string) {

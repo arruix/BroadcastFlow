@@ -56,6 +56,19 @@ describe('intención de donar', () => {
       .get(`/v1/public/donations/${pledge.donationId}`)
       .expect(200);
     expect(receipt.body.status).toBe('pendiente');
+    expect(receipt.body.donorName).toBeUndefined();
+    expect(receipt.body.donorEmail).toBeUndefined();
+    expect(pledge).not.toHaveProperty('clientSecret');
+    const progress = await request(app.getHttpServer())
+      .get(`/v1/public/campaigns/${campaign.slug}`)
+      .expect(200);
+    expect(progress.body.progress).toMatchObject({
+      intentionMinor: 2000,
+      intentionCount: 1,
+      confirmedMinor: 0,
+      confirmedCount: 0,
+      pledgedMinor: 2000,
+    });
 
     delete process.env.DONATIONS_SIMULATED_PAYMENTS;
     await request(app.getHttpServer())
@@ -85,6 +98,15 @@ describe('intención de donar', () => {
       .post(`/v1/public/donations/${pledge.donationId}/pay`)
       .expect(200);
     expect(simulated.body.status).toBe('liquidada');
+    const settled = await request(app.getHttpServer())
+      .get(`/v1/public/campaigns/${campaign.slug}`)
+      .expect(200);
+    expect(settled.body.progress).toMatchObject({
+      confirmedMinor: 2000,
+      confirmedCount: 1,
+      intentionMinor: 0,
+      intentionCount: 0,
+    });
   });
 });
 

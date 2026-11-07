@@ -16,6 +16,8 @@ export type CampaignCard = {
   startsOn?: string;
   endsOn?: string;
   pledgedMinor?: number;
+  confirmedMinor?: number;
+  intentionMinor?: number;
 };
 
 function named(table: Record<string, string>, key: string) {
@@ -43,16 +45,19 @@ export function CampaignCards({ campaigns }: { campaigns: CampaignCard[] }) {
             </Link>
             {campaign.goalMinor ? (
               <div className="card-progress">
-                {campaign.pledgedMinor !== undefined ? (
+                {campaign.confirmedMinor !== undefined ? (
                   <>
                     <p className="text-sm">
-                      <strong>${(campaign.pledgedMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 })}</strong>{" "}
-                      <span className="text-[var(--muted)]">{fill(tx("de {amount} {currency}", "of {amount} {currency}"), { amount: (campaign.goalMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 }), currency: campaign.currency })}</span>
+                      <strong>${(campaign.confirmedMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 })}</strong>{" "}
+                      <span className="text-[var(--muted)]">{fill(tx("confirmados de {amount} {currency}", "confirmed of {amount} {currency}"), { amount: (campaign.goalMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 }), currency: campaign.currency })}</span>
                     </p>
-                    <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((campaign.pledgedMinor / campaign.goalMinor) * 100))}>
-                      <span style={{ width: `${Math.min(100, (campaign.pledgedMinor / campaign.goalMinor) * 100)}%` }} />
+                    <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, Math.round((campaign.confirmedMinor / campaign.goalMinor) * 100))}>
+                      <span style={{ width: `${Math.min(100, (campaign.confirmedMinor / campaign.goalMinor) * 100)}%` }} />
                     </div>
-                    <p className="text-xs text-[var(--muted)]">{Math.round((campaign.pledgedMinor / campaign.goalMinor) * 100)}% {tx("de la meta", "of the goal")}</p>
+                    <p className="text-xs text-[var(--muted)]">
+                      {Math.round((campaign.confirmedMinor / campaign.goalMinor) * 100)}% {tx("confirmado", "confirmed")}
+                      {campaign.intentionMinor ? ` · $${(campaign.intentionMinor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 })} ${tx("en intenciones", "in intentions")}` : ""}
+                    </p>
                   </>
                 ) : (
                   <p className="text-sm text-[var(--muted)]">
@@ -82,13 +87,15 @@ export function CampaignCards({ campaigns }: { campaigns: CampaignCard[] }) {
   );
 }
 
-// Avance hacia la meta: lo calcula la API pública de la campaña (suma de donativos vigentes).
+// Avance confirmado en el libro. Las intenciones se muestran aparte y no mueven la barra.
 export async function withProgress(campaigns: CampaignCard[]): Promise<CampaignCard[]> {
   return Promise.all(
     campaigns.map(async (campaign) => {
       try {
-        const body = await api<{ progress?: { pledgedMinor: number } }>(`/public/campaigns/${campaign.slug}`);
-        return body.progress ? { ...campaign, pledgedMinor: body.progress.pledgedMinor } : campaign;
+        const body = await api<{ progress?: { confirmedMinor: number; intentionMinor: number } }>(`/public/campaigns/${campaign.slug}`);
+        return body.progress
+          ? { ...campaign, confirmedMinor: body.progress.confirmedMinor, intentionMinor: body.progress.intentionMinor }
+          : campaign;
       } catch {
         return campaign;
       }

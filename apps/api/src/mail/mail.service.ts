@@ -1,4 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import {
+  createMailTransport,
+  MemoryMailTransport,
+  type MailDisposition,
+  type MailTransport,
+} from './transport';
 
 export type OutboundMail = {
   to: string;
@@ -8,28 +14,28 @@ export type OutboundMail = {
 
 @Injectable()
 export class MailService {
-  readonly sent: OutboundMail[] = [];
+  private transport: MailTransport = createMailTransport(process.env);
+  private writeLog: (line: string) => void = (line) => console.log(line);
 
-  send(message: OutboundMail) {
-    this.sent.push(message);
-    const webOrigin = process.env.WEB_ORIGIN ?? 'http://localhost:3000';
-    if (message.purpose === 'verify') {
-      console.log(
-        `\n📬 [MailService] Verificación para ${message.to}:\n` +
-          `   Enlace: ${webOrigin}/verificar?token=${message.token}\n` +
-          `   Token:  ${message.token}\n`,
-      );
-    } else if (message.purpose === 'reset') {
-      console.log(
-        `\n📬 [MailService] Restablecer contraseña para ${message.to}:\n` +
-          `   Enlace: ${webOrigin}/restablecer?token=${message.token}\n` +
-          `   Token:  ${message.token}\n`,
-      );
-    } else {
-      console.log(
-        `\n📬 [MailService] Correo enviado a ${message.to} [${message.purpose}]: ${message.token}\n`,
-      );
-    }
+  bindForTest(transport: MailTransport, writeLog?: (line: string) => void) {
+    this.transport = transport;
+    if (writeLog) this.writeLog = writeLog;
+  }
+
+  get sent(): OutboundMail[] {
+    return this.transport instanceof MemoryMailTransport
+      ? this.transport.sent
+      : [];
+  }
+
+  canDeliver(): boolean {
+    return this.transport.canDeliver();
+  }
+
+  async send(message: OutboundMail): Promise<MailDisposition> {
+    const result = await this.transport.send(message);
+    this.writeLog(mailLogLine(message, result));
+    return result;
   }
 
   latest(
@@ -40,4 +46,22 @@ export class MailService {
       .reverse()
       .find((message) => message.to === to && message.purpose === purpose);
   }
+}
+
+export function mailLogLine(
+  message: OutboundMail,
+  result: MailDisposition,
+): string {
+  const recipient = redactMailbox(message.to);
+  if (result.disposition === 'queued')
+    return `mail queued purpose=${message.purpose} recipient=${recipient} smtp=${result.smtpCode}`;
+  return `mail stored purpose=${message.purpose} recipient=${recipient}`;
+}
+
+export function redactMailbox(email: string): string {
+  const at = email.indexOf('@');
+  if (at <= 0) return 'redacted';
+  const domain = email.slice(at + 1);
+  if (!domain || domain.includes('@')) return 'redacted';
+  return `${email.slice(0, 1)}***@${domain}`;
 }

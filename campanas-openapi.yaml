@@ -1716,9 +1716,10 @@ components:
       allOf:
         - $ref: "#/components/schemas/CampaignWrite"
         - type: object
-          required: [id, status, slug]
+          required: [id, organizationId, status, slug]
           properties:
             id: { type: string, format: uuid }
+            organizationId: { type: string, format: uuid }
             slug: { type: string }
             status:
               type: string
@@ -1774,9 +1775,13 @@ components:
           description: Meta de la campaña en centavos, si la fijó la organización.
         progress:
           type: object
-          description: Avance público. Suma donativos comprometidos (pendientes, por confirmar y liquidados); excluye fallidos, reembolsados y disputados.
-          required: [pledgedMinor, donors]
+          description: Separa dinero liquidado en el libro e intenciones sin cobro. Un clic al enlace externo no liquida. pledgedMinor es la suma y no es dinero cobrado por BroadcastFlow.
+          required: [confirmedMinor, confirmedCount, intentionMinor, intentionCount, pledgedMinor, donors]
           properties:
+            confirmedMinor: { type: integer, format: int64 }
+            confirmedCount: { type: integer }
+            intentionMinor: { type: integer, format: int64 }
+            intentionCount: { type: integer }
             pledgedMinor: { type: integer, format: int64 }
             donors: { type: integer }
     DonationStart:
@@ -1791,11 +1796,10 @@ components:
         visitAnonymousId: { type: string, format: uuid }
     DonationPending:
       type: object
-      required: [donationId, privacyNoticeId, clientSecret]
+      required: [donationId, privacyNoticeId]
       properties:
         donationId: { type: string, format: uuid }
         privacyNoticeId: { type: string, format: uuid }
-        clientSecret: { type: string }
     DonationRecord:
       type: object
       required: [id, status, grossMinor, netMinor, processorFeeMinor, platformFeeMinor, currency, privacyNoticeId]
@@ -1808,8 +1812,14 @@ components:
         platformFeeMinor: { type: integer, format: int64 }
         currency: { type: string }
         privacyNoticeId: { type: string, format: uuid }
-        donorName: { type: string, nullable: true }
-        donorEmail: { type: string, nullable: true }
+        donorName:
+          type: string
+          nullable: true
+          description: Solo en el endpoint autenticado de derechos. El GET público no lo incluye.
+        donorEmail:
+          type: string
+          nullable: true
+          description: Solo en el endpoint autenticado de derechos. El GET público no lo incluye.
         anonymizedAt: { type: string, format: date-time, nullable: true }
         fiscalReceipt: { type: boolean, description: Siempre false. No es CFDI deducible. }
     DonorRightsRequest:

@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthGuard, type AuthedRequest } from '../identidad/auth.guard';
+import { clientIp } from '../shared/client-ip';
 import { DomainException } from '../shared/domain';
 import { RecaudacionService, type DonationInput } from './recaudacion.service';
 
@@ -34,7 +35,7 @@ export class RecaudacionController {
       slug,
       body,
       idempotencyKey,
-      request.ip ?? 'local',
+      clientIp(request),
     );
   }
 

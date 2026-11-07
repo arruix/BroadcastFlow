@@ -10,7 +10,7 @@ import {
 } from '../shared/payment-method';
 import { assertWritable } from '../shared/subscription';
 
-const columns = `id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
+const columns = `id, organization_id, name, goal_minor, currency, kind, jurisdiction, jurisdiction_policy_id,
   time_zone, starts_on, ends_on, status, slug, store_url,
   payment_link_url, transfer_bank, transfer_holder, transfer_clabe, transfer_reference`;
 
@@ -30,6 +30,7 @@ export type CampaignInput = {
 
 type CampaignRow = {
   id: string;
+  organization_id: string;
   name: string;
   goal_minor: string | null;
   currency: string;
@@ -312,6 +313,7 @@ export class CampanaService {
 function present(row: CampaignRow) {
   return {
     id: row.id,
+    organizationId: row.organization_id,
     name: row.name,
     goalMinor: row.goal_minor === null ? undefined : Number(row.goal_minor),
     currency: row.currency.trim(),

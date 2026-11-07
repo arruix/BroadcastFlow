@@ -28,7 +28,14 @@ type PublicCampaign = {
   } | null;
   live: { playbackUrl: string } | null;
   goalMinor?: number | null;
-  progress?: { pledgedMinor: number; donors: number };
+  progress?: {
+    confirmedMinor: number;
+    confirmedCount: number;
+    intentionMinor: number;
+    intentionCount: number;
+    pledgedMinor: number;
+    donors: number;
+  };
 };
 
 function amount(minor: number, currency: string) {
@@ -95,10 +102,12 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
 
   const cover = campaign.share?.imageKey?.startsWith("https://") ? campaign.share.imageKey : null;
   const story = campaign.share?.description ?? null;
-  const pledged = campaign.progress?.pledgedMinor ?? 0;
-  const donors = campaign.progress?.donors ?? 0;
+  const confirmed = campaign.progress?.confirmedMinor ?? 0;
+  const confirmedCount = campaign.progress?.confirmedCount ?? 0;
+  const intentions = campaign.progress?.intentionMinor ?? 0;
+  const intentionCount = campaign.progress?.intentionCount ?? 0;
   const goal = campaign.goalMinor ?? null;
-  const share = goal ? Math.min(100, Math.round((pledged / goal) * 100)) : null;
+  const share = goal ? Math.min(100, Math.round((confirmed / goal) * 100)) : null;
 
   return (
     <div className="public-page">
@@ -134,14 +143,22 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
             </figure>
           ) : null}
           {story ? <p className="public-story">{story}</p> : null}
+          {campaign.status === "borrador" ? (
+            <p className="note">
+              {tx(
+                "Esta página ya se puede abrir con el enlace mientras sigue en borrador. El pago externo y los clics de pago se muestran cuando la campaña está activa y el aviso está publicado.",
+                "This page can already be opened with the link while it is still a draft. The external payment and payment clicks appear when the campaign is active and the notice is published.",
+              )}
+            </p>
+          ) : null}
           {demoMode ? null : (
             <div className="flex items-start gap-3.5 rounded-2xl border border-teal-100 bg-teal-50/70 p-4 text-slate-800">
               <div className="flex flex-col gap-0.5">
-                <h2 className="text-sm font-bold text-slate-900">{tx("Impacto en redes sociales", "Social media impact")}</h2>
+                <h2 className="text-sm font-bold text-slate-900">{tx("Visitas y clics", "Visits and clicks")}</h2>
                 <p className="text-sm text-slate-600">
                   {tx(
-                    "Entre más donaciones reciba esta campaña, más tiempo permanecerá transmitiendo y activa en las redes sociales.",
-                    "The more donations this campaign receives, the longer it will remain broadcasting and active on social networks.",
+                    "BroadcastFlow cuenta visitas y clics al pago externo. No compra anuncios ni alarga una transmisión.",
+                    "BroadcastFlow counts visits and clicks on the external payment. It does not buy ads or extend a broadcast.",
                   )}
                 </p>
               </div>
@@ -153,11 +170,11 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
         </section>
         <aside className="panel donate-card flex flex-col gap-4 p-5 lg:sticky lg:top-6">
           <div className="flex flex-col gap-2">
-            <p className="text-3xl font-extrabold text-slate-900">{amount(pledged, campaign.currency)}</p>
+            <p className="text-3xl font-extrabold text-slate-900">{amount(confirmed, campaign.currency)}</p>
             <p className="text-sm text-[var(--muted)]">
               {goal
-                ? fillText(tx("comprometidos de una meta de {goal}", "pledged of a {goal} goal"), { goal: amount(goal, campaign.currency) })
-                : tx("comprometidos", "pledged")}
+                ? fillText(tx("confirmados en el libro, de una meta de {goal}", "confirmed on the ledger, of a {goal} goal"), { goal: amount(goal, campaign.currency) })
+                : tx("confirmados en el libro", "confirmed on the ledger")}
             </p>
             {share !== null ? (
               <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={share} aria-label={tx("Avance de la meta", "Goal progress")}>
@@ -166,8 +183,21 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
             ) : null}
             <p className="text-sm text-slate-700">
               {share !== null ? `${share}% · ` : ""}
-              {donors === 1 ? tx("1 donativo", "1 donation") : fillText(tx("{n} donativos", "{n} donations"), { n: String(donors) })}
+              {confirmedCount === 1
+                ? tx("1 pago confirmado en el libro", "1 payment confirmed on the ledger")
+                : fillText(tx("{n} pagos confirmados en el libro", "{n} payments confirmed on the ledger"), { n: String(confirmedCount) })}
             </p>
+            {intentionCount > 0 ? (
+              <p className="text-sm text-[var(--muted)]">
+                {fillText(
+                  tx(
+                    "{amount} en {count} intenciones. No son pagos confirmados ni los cobra BroadcastFlow.",
+                    "{amount} in {count} intentions. These are not confirmed payments and BroadcastFlow does not collect them.",
+                  ),
+                  { amount: amount(intentions, campaign.currency), count: String(intentionCount) },
+                )}
+              </p>
+            ) : null}
           </div>
           {campaign.donateEnabled && hasExternal ? <MetodoPago slug={campaign.slug} method={campaign.paymentMethod!} /> : null}
           {campaign.donateEnabled && hasExternal ? (
