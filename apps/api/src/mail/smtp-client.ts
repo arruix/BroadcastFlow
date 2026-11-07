@@ -113,8 +113,10 @@ async function smtpSession(
     void command(active, reader, 'QUIT', 'data', false).catch(() => undefined);
     return accepted;
   } catch (error) {
-    if (error instanceof MailRelayError && dataCommitted)
-      throw new MailRelayError(error.failure, error.smtpCode, false, 'data');
+    if (dataCommitted) {
+      const relay = error instanceof MailRelayError ? error : asRelay(error);
+      throw new MailRelayError(relay.failure, relay.smtpCode, false, 'data');
+    }
     throw error;
   } finally {
     socket.destroy();

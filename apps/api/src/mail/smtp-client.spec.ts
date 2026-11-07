@@ -138,7 +138,10 @@ describe('SMTP local', () => {
       });
     });
     await expect(
-      deliverSmtp(config(dropped.port, { rejectUnauthorized: false, retryDelayMs: 0 }), sample()),
+      deliverSmtp(
+        config(dropped.port, { rejectUnauthorized: false, retryDelayMs: 0, maxAttempts: 3 }),
+        sample(),
+      ),
     ).rejects.toBeInstanceOf(DomainException);
     await close(dropped);
     expect(bodies).toBe(1);
