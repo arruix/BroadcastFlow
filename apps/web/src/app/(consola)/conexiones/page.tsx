@@ -128,8 +128,8 @@ export default function Conexiones() {
               </span>
               <p className="text-xs text-slate-600 leading-relaxed">
                 {tx(
-                  "Requiere credenciales OAuth 2.0 con el scope 'youtube'. Permite retransmitir el stream RTMP directamente a tu canal cuando emites en vivo.",
-                  "Requires OAuth 2.0 credentials with 'youtube' scope. Allows pushing RTMP live streams directly to your channel during live broadcasts."
+                  "Esta versión no retransmite a YouTube. Las credenciales, si se configuran, no convierten el botón en una emisión real.",
+                  "This version does not relay to YouTube. Credentials, if configured, do not turn the button into a real broadcast."
                 )}
               </p>
             </div>
@@ -167,8 +167,8 @@ export default function Conexiones() {
 
             <p className="text-sm text-slate-600 leading-relaxed">
               {tx(
-                "Publica piezas y avisos como Página de Facebook con enlace oficial de donación, y transmite en vivo desde la consola.",
-                "Publish pieces and notices as a Facebook Page with official donation link, and broadcast live from the console."
+                "No publica en Facebook ni transmite en vivo. Sirve para guardar una conexión local mientras compartes el enlace a mano.",
+                "It does not publish on Facebook or go live. It stores a local connection while you share the link yourself."
               )}
             </p>
 
@@ -180,7 +180,7 @@ export default function Conexiones() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">{tx("Estado de permisos", "Permissions")}:</span>
-                  <span className="font-medium text-emerald-700">{tx("Publicación y Live activo", "Publishing and Live active")}</span>
+                  <span className="font-medium text-emerald-700">{tx("Guardada en local, sin publicación", "Stored locally, not publishing")}</span>
                 </div>
               </div>
             ) : null}
@@ -245,8 +245,8 @@ export default function Conexiones() {
 
             <p className="text-sm text-slate-600 leading-relaxed">
               {tx(
-                "Emite transmisiones en vivo sincronizadas con tu canal de YouTube utilizando el cupo de minutos incluido en tu suscripción.",
-                "Broadcast live streams synchronized with your YouTube channel using the minutes quota included in your subscription."
+                "No emite en YouTube. El cupo de minutos del plan no abre una transmisión en esta versión.",
+                "It does not broadcast on YouTube. The plan's minute quota does not start a stream in this version."
               )}
             </p>
 
@@ -258,7 +258,7 @@ export default function Conexiones() {
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-500">{tx("Estado de emisión", "Live status")}:</span>
-                  <span className="font-medium text-emerald-700">{tx("Directo habilitado", "Live streaming enabled")}</span>
+                  <span className="font-medium text-emerald-700">{tx("Guardado en local, sin emisión", "Stored locally, not broadcasting")}</span>
                 </div>
               </div>
             ) : null}
@@ -268,7 +268,7 @@ export default function Conexiones() {
             {ytConnection ? (
               <>
                 <Link className="chip" href="/campanas">
-                  {tx("Ir a estudio en vivo", "Go to live studio")}
+                  {tx("Abrir estudio (no emite)", "Open studio (does not broadcast)")}
                 </Link>
                 <button
                   type="button"

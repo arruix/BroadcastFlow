@@ -4,13 +4,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { useTx } from "@/lib/i18n";
-import { api, explain, signedIn } from "@/lib/api";
+import { ApiError, api, explain, signedIn } from "@/lib/api";
 import { originColor, originLabel } from "@/lib/origen";
 import { PiezaPreview } from "./pieza-preview";
 import { slugify, utmLink } from "@/lib/utm";
 
 type Organization = { id: string; name: string };
-type Created = { id: string; slug: string };
+type Created = { id: string; slug: string; organizationId: string };
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "");
 const networks = ["facebook", "instagram", "tiktok", "x", "whatsapp", "youtube", "linkedin", "telegram"] as const;
@@ -34,6 +34,7 @@ export default function NuevaCampana() {
   const [copy, setCopy] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [created, setCreated] = useState<Created | null>(null);
+  const [shareSaved, setShareSaved] = useState(false);
   const [copied, setCopied] = useState("");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -67,30 +68,37 @@ export default function NuevaCampana() {
     setBusy(true);
     setMessage("");
     try {
-      const campaign = await api<Created>("/campaigns", {
-        method: "POST",
-        ...(organizationId ? { org: organizationId } : {}),
-        body: JSON.stringify({
-          name: name.trim(),
-          currency: "MXN",
-          kind,
-          jurisdiction: "MX",
-          timeZone: "America/Mexico_City",
-          ...(goal ? { goalMinor: Math.round(Number(goal) * 100) } : {}),
-          paymentLinkUrl: link || null,
-          transferBank: bank || null,
-          transferHolder: holder || null,
-          transferClabe: clabe || null,
-        }),
-      });
-      if (organizationId && story.trim()) {
+      let campaign = created;
+      if (!campaign) {
+        campaign = await api<Created>("/campaigns", {
+          method: "POST",
+          ...(organizationId ? { org: organizationId } : {}),
+          body: JSON.stringify({
+            name: name.trim(),
+            currency: "MXN",
+            kind,
+            jurisdiction: "MX",
+            timeZone: "America/Mexico_City",
+            ...(goal ? { goalMinor: Math.round(Number(goal) * 100) } : {}),
+            paymentLinkUrl: link || null,
+            transferBank: bank || null,
+            transferHolder: holder || null,
+            transferClabe: clabe || null,
+          }),
+        });
+        setCreated(campaign);
+        if (campaign.organizationId) setOrganizationId(campaign.organizationId);
+      }
+      const org = campaign.organizationId || organizationId;
+      if (story.trim() && !shareSaved) {
+        if (!org) throw new ApiError("forbidden", 403);
         await api(`/campaigns/${campaign.id}/share`, {
           method: "PUT",
-          org: organizationId,
+          org,
           body: JSON.stringify({ title: name.trim(), description: story.trim(), imageKey: null }),
-        }).catch(() => undefined);
+        });
+        setShareSaved(true);
       }
-      setCreated(campaign);
     } catch (error) {
       setMessage(explain(error));
     } finally {
@@ -186,8 +194,14 @@ export default function NuevaCampana() {
         <section className="sheet flex flex-col gap-4">
           <p className="text-sm text-[var(--muted)]">
             {created
-              ? tx("Listo. Copia el enlace de cada red: ya trae sus UTM para medir de dónde llega la gente.", "Done. Copy each network's link: it already has UTM tags to measure where people come from.")
-              : tx("Así quedarán tus enlaces con UTM automáticos. Se confirman al guardar la campaña.", "These are your links with automatic UTM tags. They are confirmed when you save the campaign.")}
+              ? tx(
+                  "Enlaces con UTM. La campaña sigue en borrador: el enlace ya abre la página, y el pago externo y los clics de pago se encienden al publicar el aviso y activar.",
+                  "Links with UTM. The campaign is still a draft: the link already opens the page, and the external payment and payment clicks turn on after you publish the notice and activate.",
+                )
+              : tx(
+                  "Así quedarán los enlaces con UTM. Guardar deja la campaña en borrador; todavía no activa el pago.",
+                  "These are the links with UTM. Saving leaves the campaign as a draft; it does not turn on payment yet.",
+                )}
           </p>
           <ul className="share-list">
             {networks.map((network) => (
@@ -209,8 +223,8 @@ export default function NuevaCampana() {
         ) : <span />}
         {step < 3 ? (
           <button className="btn-primary" type="button" disabled={!canNext} onClick={() => setStep(step + 1)}>{tx("Continuar", "Continue")} →</button>
-        ) : created ? (
-          <button className="btn-primary" type="button" onClick={() => router.push(`/campanas/${created.id}`)}>{tx("Ir a la campaña", "Go to the campaign")}</button>
+        ) : created && (shareSaved || !story.trim()) ? (
+          <button className="btn-primary" type="button" onClick={() => router.push(`/campanas/${created.id}`)}>{tx("Publicar aviso y activar", "Publish notice and activate")}</button>
         ) : (
           <button className="btn-primary" type="button" disabled={busy || !signedIn()} onClick={save}>{busy ? tx("Guardando…", "Saving…") : tx("Guardar campaña", "Save campaign")}</button>
         )}

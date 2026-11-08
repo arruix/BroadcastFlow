@@ -11,7 +11,7 @@ export default function Ajustes() {
     { id: "team", href: "/equipo", title: tx("Equipo", "Team"), body: tx("Quién entra a la consola y con qué permisos.", "Who can sign in and with which permissions.") },
     { id: "security", href: "/seguridad", title: t.nav.security, body: tx("Contraseña y verificación en dos pasos.", "Password and two-step verification.") },
     { id: "plan", href: "/plan", title: t.nav.plan, body: tx("Tu plan y la facturación.", "Your plan and billing.") },
-    { id: "connections", href: "/conexiones", title: t.nav.connections, body: tx("Cuentas de Facebook y YouTube para transmitir.", "Facebook and YouTube accounts for streaming.") },
+    { id: "connections", href: "/conexiones", title: t.nav.connections, body: tx("Facebook y YouTube no publican ni emiten en esta versión.", "Facebook and YouTube do not publish or broadcast in this version.") },
   ].filter((item) => visibleInDemo(item.id));
   return (
     <main className="console-page">

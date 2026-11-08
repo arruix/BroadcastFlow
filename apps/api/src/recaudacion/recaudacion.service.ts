@@ -87,8 +87,10 @@ export class RecaudacionService {
           image_key: string | null;
           live_id: string | null;
           goal_minor: string | null;
-          pledged_minor: string;
-          donors: string;
+          confirmed_minor: string;
+          confirmed_count: string;
+          intention_minor: string;
+          intention_count: string;
         } & PaymentColumns
       >(
         `SELECT c.name, c.slug, c.status, c.kind, c.currency, p.donations_enabled,
@@ -97,7 +99,8 @@ export class RecaudacionService {
                 n.id AS notice_id, n.version, n.controller, n.purpose, n.data_categories, n.retention, n.published_at,
                 sh.title AS share_title, sh.description AS share_description, sh.image_key,
                 live.id AS live_id,
-                c.goal_minor, progress.pledged_minor, progress.donors
+                c.goal_minor, progress.confirmed_minor, progress.confirmed_count,
+                progress.intention_minor, progress.intention_count
          FROM campaign c
          JOIN subscription s ON s.organization_id = c.organization_id
          JOIN plan p ON p.id = s.plan_id
@@ -108,8 +111,13 @@ export class RecaudacionService {
            SELECT id FROM live_session WHERE campaign_id = c.id AND status = 'live' ORDER BY started_at DESC LIMIT 1
          ) live ON true
          LEFT JOIN LATERAL (
-           -- Avance público: donativos comprometidos (no fallidos ni devueltos) en la moneda de la campaña.
-           SELECT COALESCE(SUM(gross_minor), 0) AS pledged_minor, COUNT(*) AS donors
+           -- Confirmado = liquidada. Intención = pendiente o requiere_accion.
+           -- Un clic al enlace externo no liquida el registro.
+           SELECT
+             COALESCE(SUM(gross_minor) FILTER (WHERE status = 'liquidada'), 0) AS confirmed_minor,
+             COUNT(*) FILTER (WHERE status = 'liquidada') AS confirmed_count,
+             COALESCE(SUM(gross_minor) FILTER (WHERE status IN ('pendiente', 'requiere_accion')), 0) AS intention_minor,
+             COUNT(*) FILTER (WHERE status IN ('pendiente', 'requiere_accion')) AS intention_count
            FROM donation
            WHERE campaign_id = c.id AND currency = c.currency
              AND status IN ('pendiente', 'requiere_accion', 'liquidada')
@@ -156,10 +164,7 @@ export class RecaudacionService {
         : null,
       live: row.live_id ? { playbackUrl: playbackUrl(row.live_id) } : null,
       goalMinor: row.goal_minor === null ? null : Number(row.goal_minor),
-      progress: {
-        pledgedMinor: Number(row.pledged_minor ?? 0),
-        donors: Number(row.donors ?? 0),
-      },
+      progress: presentProgress(row),
     };
   }
 
@@ -308,7 +313,7 @@ export class RecaudacionService {
     );
     const row = found.rows[0];
     if (!row) throw new NotFoundException();
-    return donationRecord(row);
+    return publicDonationRecord(row);
   }
 
   // Cobro simulado: firma el webhook con la llave interna. Solo existe para
@@ -465,10 +470,44 @@ async function requireRole(
     throw new DomainException('forbidden', 403);
 }
 
+function presentProgress(row: {
+  confirmed_minor: string;
+  confirmed_count: string;
+  intention_minor: string;
+  intention_count: string;
+}) {
+  const confirmedMinor = Number(row.confirmed_minor ?? 0);
+  const intentionMinor = Number(row.intention_minor ?? 0);
+  const confirmedCount = Number(row.confirmed_count ?? 0);
+  const intentionCount = Number(row.intention_count ?? 0);
+  return {
+    confirmedMinor,
+    confirmedCount,
+    intentionMinor,
+    intentionCount,
+    // Suma histórica. No es dinero cobrado.
+    pledgedMinor: confirmedMinor + intentionMinor,
+    donors: confirmedCount + intentionCount,
+  };
+}
+
+function publicDonationRecord(row: DonationRow) {
+  return {
+    id: row.id,
+    status: row.status,
+    grossMinor: Number(row.gross_minor),
+    netMinor: Number(row.net_minor),
+    processorFeeMinor: Number(row.processor_fee_minor),
+    platformFeeMinor: Number(row.platform_fee_minor),
+    currency: row.currency.trim(),
+    privacyNoticeId: row.privacy_notice_id,
+    fiscalReceipt,
+  };
+}
+
 function pending(donationId: string, privacyNoticeId: string) {
   return {
     donationId,
     privacyNoticeId,
-    clientSecret: `dev_${donationId}`,
   };
 }

@@ -40,8 +40,8 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
         <p className="text-sm text-slate-600">
           {tx(
-            "Registramos tu intención de donar. No se ha realizado ningún cobro: te avisaremos por correo cuando el pago esté habilitado.",
-            "We recorded your pledge. No charge has been made: we will email you when payment is enabled."
+            "Registramos tu intención. No hubo cobro. BroadcastFlow no confirma un pago hecho en Mercado Pago, PayPal o Stripe, y no envía un correo de esta intención.",
+            "We recorded your intention. There was no charge. BroadcastFlow does not confirm a payment made on Mercado Pago, PayPal, or Stripe, and it does not email this intention."
           )}
         </p>
         <p className="text-sm">
@@ -64,8 +64,8 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
         <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
         <p className="text-sm text-slate-600">
           {tx(
-            "Tu aportación ha sido procesada correctamente y contribuye directamente al impacto de la campaña.",
-            "Your contribution has been successfully processed and directly fuels the campaign's impact."
+            "El libro marcó este registro como liquidado. Eso no significa que BroadcastFlow haya cobrado una tarjeta ni que un clic al enlace externo esté verificado.",
+            "The ledger marked this record settled. That does not mean BroadcastFlow charged a card or that a click on the external link was verified."
           )}
         </p>
       </div>
@@ -78,12 +78,12 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
         </div>
         <div>
           <span className="font-bold text-teal-950 block mb-0.5">
-            {tx("Más tiempo de difusión en redes sociales", "More broadcast airtime on social networks")}
+            {tx("Cifras del libro", "Ledger figures")}
           </span>
           <p className="text-teal-900/90 leading-snug">
             {tx(
-              "Entre más donaciones se reciben, más tiempo permanece la campaña activa y visible en las redes sociales conectadas.",
-              "The more donations received, the longer the campaign remains active and visible across connected social networks."
+              "Estas cifras salen del libro interno. El pago externo, si se hizo, lo recibió la cuenta de la campaña, no BroadcastFlow.",
+              "These figures come from the internal ledger. An external payment, if it happened, was received by the campaign's account, not by BroadcastFlow."
             )}
           </p>
         </div>
@@ -109,7 +109,7 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
           <span className="text-slate-700">{money(receipt.platformFeeMinor)} {receipt.currency}</span>
         </div>
         <div className="flex justify-between items-center pt-3 border-t border-slate-100 font-semibold text-base">
-          <span className="text-slate-900">{tx("Neto para la causa", "Net for the cause")}</span>
+          <span className="text-slate-900">{tx("Neto anotado en el libro", "Net recorded on the ledger")}</span>
           <span className="text-teal-600 font-bold">{money(receipt.netMinor)} {receipt.currency}</span>
         </div>
       </div>

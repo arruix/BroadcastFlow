@@ -67,8 +67,8 @@ export default function FacebookConnect() {
 
       <p className="text-sm text-slate-600">
         {tx(
-          "Conecta tu Página de Facebook para publicar piezas de campaña automáticamente y transmitir en vivo desde la consola o tableta.",
-          "Connect your Facebook Page to automatically publish campaign pieces and broadcast live from the console or tablet."
+          "Esta versión no publica ni transmite en Facebook. El botón de prueba solo guarda una conexión local.",
+          "This version does not publish or broadcast on Facebook. The test button only stores a local connection."
         )}
       </p>
 
@@ -82,8 +82,8 @@ export default function FacebookConnect() {
         </div>
         <p className="text-xs text-teal-900/90 leading-relaxed">
           {tx(
-            "¿Quieres probar la publicación y transmisión de inmediato sin configurar credenciales de Meta? Conecta una Página verificada de prueba con un solo clic.",
-            "Want to test publishing and broadcasting immediately without setting up Meta credentials? Connect a verified test Page with one click."
+            "El botón no llama a Meta. Guarda un identificador local para ensayos y no publica la pieza.",
+            "The button does not call Meta. It stores a local id for rehearsal and does not publish the piece."
           )}
         </p>
         <button
@@ -145,7 +145,7 @@ export default function FacebookConnect() {
               {tx("Página conectada con éxito", "Page connected successfully")}
             </p>
             <p className="text-xs text-emerald-800">
-              {saved.externalAccountId} · {saved.status === "active" ? tx("Lista para publicar y emitir", "Ready to publish and broadcast") : tx("Requiere permisos de publicación", "Requires publish permissions")}
+              {saved.externalAccountId} · {saved.status === "active" ? tx("Guardada en local, sin publicación", "Stored locally, not publishing") : tx("Sin publicación", "Not publishing")}
             </p>
           </div>
         </div>

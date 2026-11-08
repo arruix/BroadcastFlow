@@ -83,6 +83,8 @@ export class OrganizacionService {
       throw new DomainException('email_invalid', 422);
     if (!memberRoles.includes(role as (typeof memberRoles)[number]))
       throw new DomainException('forbidden', 403);
+    if (!this.mail.canDeliver())
+      throw new DomainException('mail_not_configured', 503);
     await assertWritable(this.db, userId, organizationId);
     const token = randomToken();
     try {
@@ -138,7 +140,7 @@ export class OrganizacionService {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         };
       });
-      this.mail.send({ to: normalized, purpose: 'invite', token });
+      await this.mail.send({ to: normalized, purpose: 'invite', token });
       return saved;
     } catch (error) {
       if (error instanceof DomainException) throw error;

@@ -67,8 +67,8 @@ export default function YoutubeConnect() {
 
       <p className="text-sm text-slate-600">
         {tx(
-          "Conecta tu canal de YouTube para habilitar transmisiones en vivo sincronizadas con Facebook en tus campañas.",
-          "Connect your YouTube channel to enable synchronized live broadcasts with Facebook in your campaigns."
+          "Esta versión no emite en YouTube. El botón de prueba solo guarda un canal local.",
+          "This version does not broadcast on YouTube. The test button only stores a local channel."
         )}
       </p>
 
@@ -82,8 +82,8 @@ export default function YoutubeConnect() {
         </div>
         <p className="text-xs text-rose-950/90 leading-relaxed">
           {tx(
-            "¿Quieres probar la transmisión de video en vivo de inmediato sin configurar credenciales de Google Cloud? Conecta un canal verificado de prueba con un solo clic.",
-            "Want to test live video broadcasting immediately without setting up Google Cloud credentials? Connect a verified test channel with one click."
+            "El botón no llama a Google. Guarda un identificador local y no abre una transmisión.",
+            "The button does not call Google. It stores a local id and does not start a broadcast."
           )}
         </p>
         <button
@@ -145,7 +145,7 @@ export default function YoutubeConnect() {
               {tx("Canal conectado con éxito", "Channel connected successfully")}
             </p>
             <p className="text-xs text-emerald-800">
-              {saved.externalAccountId} · {saved.status === "active" ? tx("Listo para emitir en vivo", "Ready to broadcast live") : tx("Requiere permisos de emisión", "Requires broadcast permissions")}
+              {saved.externalAccountId} · {saved.status === "active" ? tx("Guardado en local, sin emisión", "Stored locally, not broadcasting") : tx("Sin emisión", "Not broadcasting")}
             </p>
           </div>
         </div>

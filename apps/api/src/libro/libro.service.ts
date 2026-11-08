@@ -194,11 +194,18 @@ export class LibroService {
       });
     }
     if (!receipt?.to) return;
-    this.mail.send({
-      to: receipt.to,
-      purpose: 'receipt',
-      token: notice.donationId ?? '',
-    });
+    if (this.mail.canDeliver()) {
+      try {
+        await this.mail.send({
+          to: receipt.to,
+          purpose: 'receipt',
+          token: notice.donationId ?? '',
+        });
+      } catch (error) {
+        if (error instanceof DomainException) return;
+        throw error;
+      }
+    }
     await this.db.asWorker((db) =>
       db.query('UPDATE outbox_event SET published_at = now() WHERE id = $1', [
         receipt.id,

@@ -17,6 +17,7 @@ import {
 import type { Response } from 'express';
 import { Observable } from 'rxjs';
 import { AuthGuard, type AuthedRequest } from '../identidad/auth.guard';
+import { clientIp } from '../shared/client-ip';
 import { DomainException } from '../shared/domain';
 import { MedicionService } from './medicion.service';
 
@@ -45,7 +46,7 @@ export class VisitaController {
       slug,
       body,
       request.header('user-agent'),
-      request.ip ?? '',
+      clientIp(request),
     );
   }
 }

@@ -94,7 +94,7 @@ export function HomeView({ price, feeBps, campaignLimit, liveMinutes }: Offer) {
     { q: tx("¿Cómo funciona el gasto en pauta y el CPC?", "How do ad spend and CPC work?"), a: home.q3 },
     { q: tx("¿Puedo enlazar una tienda en línea?", "Can I link an online store?"), a: home.q4 },
     { q: tx("¿El recibo del donante es un CFDI deducible?", "Is the donor receipt a tax-deductible CFDI?"), a: home.q5 },
-    { q: tx("¿Qué redes publican directamente hoy?", "Which networks publish directly today?"), a: home.q6 },
+    { q: tx("¿Qué hacen las redes en esta versión?", "What do social networks do in this version?"), a: home.q6 },
     { q: tx("¿Cómo funcionan los retiros de lo recaudado?", "How do payouts of raised funds work?"), a: home.q7 },
   ];
 
@@ -177,12 +177,12 @@ export function HomeView({ price, feeBps, campaignLimit, liveMinutes }: Offer) {
             <div className="flex items-center gap-2">
               <span className="live-pulse" aria-hidden="true" />
               <span className="text-xs font-semibold tracking-wide text-teal-300 uppercase">
-                {tx("Publicada en", "Published on")}
+                {tx("Ejemplo visual", "Visual example")}
               </span>
             </div>
             <div className="stage-net-pills">
               <span className="net-pill net-fb">Facebook</span>
-              <span className="net-pill net-yt">{tx("YouTube en vivo", "YouTube live")}</span>
+              <span className="net-pill net-yt">YouTube</span>
             </div>
           </div>
 
@@ -192,7 +192,7 @@ export function HomeView({ price, feeBps, campaignLimit, liveMinutes }: Offer) {
               <span className="eyebrow text-teal-700">{home.example}</span>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 border border-emerald-200">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                {tx(`${totalSupporters} donativos`, `${totalSupporters} donations`)}
+                {tx(`${totalSupporters} en el ejemplo`, `${totalSupporters} in the example`)}
               </span>
             </div>
 
