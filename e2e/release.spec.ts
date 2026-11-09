@@ -17,7 +17,7 @@ test("inicio, enlaces de cuenta y flujo de campaña", async ({ page }) => {
 
   await page.goto("/verificar?token=token-de-prueba-local-0123456789");
   await expect(page.getByRole("heading", { name: "Verificar correo" })).toBeVisible();
-  await expect(page.locator("input").first()).toHaveValue("token-de-prueba-local-0123456789");
+  await expect(page.getByRole("heading", { name: "El enlace venció o ya se usó" })).toBeVisible();
 
   await page.goto("/restablecer?token=token-de-prueba-local-0123456789");
   await expect(page.getByRole("heading", { name: "Elegir contraseña" })).toBeVisible();
@@ -41,7 +41,7 @@ test("inicio, enlaces de cuenta y flujo de campaña", async ({ page }) => {
   expect(verify?.token).toBeTruthy();
 
   await page.goto(`/verificar?token=${encodeURIComponent(verify!.token)}`);
-  await page.getByRole("button", { name: "Verificar" }).click();
+  await expect(page.getByRole("heading", { name: "Correo verificado" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Entrar" })).toBeVisible();
 
   await page.goto("/ingresar");

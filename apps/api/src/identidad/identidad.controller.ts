@@ -26,8 +26,14 @@ export class IdentidadController {
   ) {}
 
   @Post('register')
-  async register(@Body() body: { email?: string; password?: string }) {
-    await this.identidad.register(body.email ?? '', body.password ?? '');
+  async register(
+    @Body() body: { email?: string; password?: string; locale?: string },
+  ) {
+    await this.identidad.register(
+      body.email ?? '',
+      body.password ?? '',
+      body.locale,
+    );
   }
 
   @Post('verify')
@@ -38,8 +44,8 @@ export class IdentidadController {
 
   @Post('verify/resend')
   @HttpCode(204)
-  async resend(@Body() body: { email?: string }) {
-    await this.identidad.resendVerification(body.email ?? '');
+  async resend(@Body() body: { email?: string; locale?: string }) {
+    await this.identidad.resendVerification(body.email ?? '', body.locale);
   }
 
   @Post('login')
@@ -93,8 +99,8 @@ export class IdentidadController {
 
   @Post('password/forgot')
   @HttpCode(204)
-  forgot(@Body() body: { email?: string }) {
-    return this.identidad.forgotPassword(body.email ?? '');
+  forgot(@Body() body: { email?: string; locale?: string }) {
+    return this.identidad.forgotPassword(body.email ?? '', body.locale);
   }
 
   @Post('password/reset')

@@ -6,11 +6,18 @@ import {
   type MailTransport,
 } from './transport';
 
+export type MailLocale = 'es' | 'en';
+
 export type OutboundMail = {
   to: string;
   purpose: 'verify' | 'reset' | 'receipt' | 'invite';
   token: string;
+  locale?: MailLocale;
 };
+
+export function mailLocale(value: unknown): MailLocale {
+  return value === 'en' ? 'en' : 'es';
+}
 
 @Injectable()
 export class MailService {

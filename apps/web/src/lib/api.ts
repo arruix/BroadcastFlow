@@ -16,9 +16,12 @@ export class ApiError extends Error {
 
 export function explain(error: unknown): string {
   const text = copy[messageLocaleNow()].errors;
-  if (!(error instanceof ApiError)) return text.failed;
+  if (!(error instanceof ApiError)) return text.offline;
   if (error.code === "token_invalid" && error.status === 422) return text.link_invalid;
-  return text[error.code as keyof typeof text] ?? text.failed;
+  const known = error.code !== "request_failed" ? text[error.code as keyof typeof text] : undefined;
+  if (known) return known;
+  if (error.status === 401 || error.status === 403) return text.session_rejected;
+  return text.failed;
 }
 
 export async function api<T>(path: string, init: RequestInit & { org?: string } = {}, retried = false): Promise<T> {

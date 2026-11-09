@@ -47,7 +47,7 @@ export default function Equipo() {
     try {
       await api(`/organizations/${organization.id}/invitations`, {
         method: "POST",
-        body: JSON.stringify({ email, role }),
+        body: JSON.stringify({ email, role, locale }),
       });
       setEmail("");
       setMessage(tx("Enviamos el enlace. Dura 7 días.", "We sent the link. It lasts 7 days."));

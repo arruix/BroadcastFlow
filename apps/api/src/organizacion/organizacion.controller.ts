@@ -40,13 +40,14 @@ export class OrganizacionController {
   invite(
     @Req() request: AuthedRequest,
     @Param('organizationId') organizationId: string,
-    @Body() body: { email?: string; role?: string },
+    @Body() body: { email?: string; role?: string; locale?: string },
   ) {
     return this.organizaciones.invite(
       request.userId,
       organizationId,
       body.email ?? '',
       body.role ?? '',
+      body.locale,
     );
   }
 
