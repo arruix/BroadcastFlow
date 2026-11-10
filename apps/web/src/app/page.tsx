@@ -1,3 +1,4 @@
+import { serverApiFetch } from "@/lib/server-api";
 import { HomeView } from "./home-view";
 
 type PlanOffer = {
@@ -9,11 +10,9 @@ type PlanOffer = {
   platformFeeBps: number;
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
-
 async function paidPlan(): Promise<PlanOffer | null> {
   try {
-    const response = await fetch(`${apiUrl}/plans`, { cache: "no-store" });
+    const response = await serverApiFetch("/plans");
     if (!response.ok) return null;
     const plans = (await response.json()) as PlanOffer[];
     return plans.find((plan) => plan.code === "campana") ?? null;

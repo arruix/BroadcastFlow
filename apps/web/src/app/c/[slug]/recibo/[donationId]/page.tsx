@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { Idioma } from "@/lib/i18n";
+import { serverApiFetch } from "@/lib/server-api";
 import { pick, serverLocale } from "@/lib/locale";
 
 type Receipt = {
@@ -13,13 +14,11 @@ type Receipt = {
   thankYou?: string | null;
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
-
 export default async function Recibo({ params }: { params: Promise<{ donationId: string }> }) {
   const { donationId } = await params;
   const locale = await serverLocale();
   const tx = (es: string, en: string) => pick(locale, es, en);
-  const response = await fetch(`${apiUrl}/public/donations/${donationId}`, { cache: "no-store" });
+  const response = await serverApiFetch(`/public/donations/${donationId}`);
   if (response.status === 404) notFound();
   if (!response.ok) {
     return (

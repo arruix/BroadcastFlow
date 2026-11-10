@@ -12,7 +12,8 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "next": "15.5.28",
-    "@broadcastflow/contracts": "*"
+    "@broadcastflow/contracts": "*",
+    "server-only": "0.0.1"
   },
   "devDependencies": {
     "typescript": "^5",
