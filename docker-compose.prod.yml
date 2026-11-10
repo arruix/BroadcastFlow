@@ -51,6 +51,12 @@ services:
     restart: always
     environment:
       NODE_ENV: production
+      # El SSR no sale por la URL pública: Cloudflare Access devolvería HTML.
+      # El navegador sigue usando NEXT_PUBLIC_API_URL, horneada en el build.
+      API_INTERNAL_URL: http://api:3001/v1
+      # Mismo secreto que el API y que Caddy inyecta en X-BF-Proxy-Token.
+      # No es NEXT_PUBLIC: no llega al bundle del navegador.
+      PROXY_SHARED_SECRET: ${PROXY_SHARED_SECRET:?}
     depends_on: [api]
     ports:
       - "127.0.0.1:3000:3000"
@@ -58,6 +64,7 @@ services:
     image: caddy:2
     restart: always
     network_mode: host
+    # Ya no hay basic auth. Este archivo solo aporta PROXY_SHARED_SECRET a Caddy.
     env_file: .basic-auth.env
     volumes:
       - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro

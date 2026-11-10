@@ -7,6 +7,7 @@ import type { Frame } from "@/lib/encuadre";
 import { MetodoPago, type PaymentMethod } from "./metodo-pago";
 import { Donar } from "./donar";
 import { Pixel } from "./pixel";
+import { serverApiFetch } from "@/lib/server-api";
 import { PaginaPublica, type LandingDesign } from "./vista";
 
 type PublicCampaign = {
@@ -38,7 +39,6 @@ type PublicCampaign = {
   };
 };
 
-const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
 function httpsImage(value: string | null | undefined) {
@@ -46,7 +46,7 @@ function httpsImage(value: string | null | undefined) {
 }
 
 async function loadCampaign(slug: string): Promise<PublicCampaign | null> {
-  const response = await fetch(`${apiUrl}/public/campaigns/${slug}`, { cache: "no-store" });
+  const response = await serverApiFetch(`/public/campaigns/${slug}`);
   if (!response.ok) return null;
   return (await response.json()) as PublicCampaign;
 }
@@ -84,7 +84,7 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
   const { slug } = await params;
   const locale = await serverLocale();
   const tx = (es: string, en: string) => pick(locale, es, en);
-  const response = await fetch(`${apiUrl}/public/campaigns/${slug}`, { cache: "no-store" });
+  const response = await serverApiFetch(`/public/campaigns/${slug}`);
   if (response.status === 404) notFound();
   if (!response.ok) {
     return (
