@@ -108,6 +108,88 @@ export class DistribucionController {
     );
   }
 
+  @Get('campaigns/:campaignId/share')
+  readShare(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+  ) {
+    return this.distribucion.readShare(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+    );
+  }
+
+  @Get('campaigns/:campaignId/frames')
+  readFrames(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+  ) {
+    return this.distribucion.readFrames(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+    );
+  }
+
+  @Put('campaigns/:campaignId/frames')
+  @HttpCode(200)
+  saveFrames(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+    @Body() body: { frames?: unknown },
+  ) {
+    return this.distribucion.saveFrames(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      body,
+    );
+  }
+
+  @Get('campaigns/:campaignId/landing')
+  readLanding(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+  ) {
+    return this.distribucion.readLanding(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+    );
+  }
+
+  @Put('campaigns/:campaignId/landing')
+  @HttpCode(200)
+  saveLanding(
+    @Req() request: AuthedRequest,
+    @Headers('x-organization-id') organizationId: string | undefined,
+    @Param('campaignId') campaignId: string,
+    @Body()
+    body: {
+      title?: unknown;
+      story?: unknown;
+      imageKey?: unknown;
+      hero?: { x?: unknown; y?: unknown; zoom?: unknown };
+      accent?: unknown;
+      amountsMinor?: unknown;
+      cta?: unknown;
+      showProgress?: unknown;
+      thankYou?: unknown;
+    },
+  ) {
+    return this.distribucion.saveLanding(
+      request.userId,
+      requiredOrg(organizationId),
+      campaignId,
+      body,
+    );
+  }
+
   @Post('campaigns/:campaignId/content-items')
   createItem(
     @Req() request: AuthedRequest,

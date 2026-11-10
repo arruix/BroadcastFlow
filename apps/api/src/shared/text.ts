@@ -20,6 +20,21 @@ export function cleanText(value: unknown, max = 500): string {
     .slice(0, max);
 }
 
+// Igual que cleanText, pero conserva los saltos de línea de una historia.
+export function cleanPlain(value: unknown, max = 4000): string {
+  const str = typeof value === 'string' ? value : '';
+  return str
+    .split('\u0000')
+    .join('')
+    .replace(/<[^>]*>/g, '')
+    .replace(/[<>]/g, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/[^\S\n]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+    .slice(0, max);
+}
+
 export function sampleNotice(fields: {
   controller: string;
   purpose: string;

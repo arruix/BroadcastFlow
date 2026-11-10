@@ -4,6 +4,8 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, explain } from "@/lib/api";
+import { initialFrames, mergeFrames, type Frame, type Placement } from "@/lib/encuadre";
+import { PiezaPreview } from "../../nueva/pieza-preview";
 
 type Organization = { id: string };
 type Campaign = { id: string; name: string; slug: string };
@@ -24,6 +26,7 @@ export default function Pieza({ params }: { params: Promise<{ campaignId: string
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [imageKey, setImageKey] = useState("");
+  const [frames, setFrames] = useState<Record<Placement, Frame>>(initialFrames);
   const [connectionId, setConnectionId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [publications, setPublications] = useState<Publication[]>([]);
@@ -48,6 +51,12 @@ export default function Pieza({ params }: { params: Promise<{ campaignId: string
           setBody(variant.body);
           setValid(variant.valid);
         }
+        const share = await api<Share>(`/campaigns/${campaignId}/share`, { org });
+        setTitle(share.title);
+        setDescription(share.description);
+        setImageKey(share.imageKey ?? "");
+        const stored = await api<{ frames: Record<string, Frame> }>(`/campaigns/${campaignId}/frames`, { org });
+        setFrames(mergeFrames(stored.frames));
       })
       .catch((error) => setMessage(explain(error)));
   }, [params]);
@@ -129,10 +138,44 @@ export default function Pieza({ params }: { params: Promise<{ campaignId: string
 
   return (
     <main className="console-page">
-      <section className="sheet multired-slot" aria-labelledby="multired-title">
-        <p className="eyebrow">{tx("Próximamente", "Coming soon")}</p>
-        <h2 id="multired-title" className="text-xl">{tx("Crea una vez, publica en todas las redes", "Create once, publish everywhere")}</h2>
-        <p className="text-sm">{tx("Aquí vas a subir una imagen o un video y ver cómo se verá en cada red antes de publicar.", "Here you will upload an image or a video and preview how it looks on each network before publishing.")}</p>
+      <section className="sheet flex flex-col gap-4" aria-labelledby="multired-title">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow">{tx("Encuadre", "Framing")}</p>
+            <h2 id="multired-title" className="text-xl">{tx("Así se verá en cada red", "How it will look on each network")}</h2>
+          </div>
+          <button
+            className="chip"
+            type="button"
+            onClick={() => {
+              if (!campaign) return;
+              setMessage("");
+              api(`/campaigns/${campaign.id}/frames`, {
+                method: "PUT",
+                org: organizationId,
+                body: JSON.stringify({ frames }),
+              })
+                .then(() => setMessage(tx("Encuadre guardado.", "Framing saved.")))
+                .catch((error) => setMessage(explain(error)));
+            }}
+          >
+            {tx("Guardar encuadre", "Save framing")}
+          </button>
+        </div>
+        <p className="text-sm text-[var(--muted)]">
+          {tx(
+            "La foto https de la ficha se publica con este encuadre. Arrastra cada marco para elegir el recorte.",
+            "The link card's https photo is published with this framing. Drag each frame to choose the crop.",
+          )}
+        </p>
+        <PiezaPreview
+          file={null}
+          imageUrl={imageKey}
+          text={body || description || title}
+          title={title}
+          frames={frames}
+          onFrame={(placement, frame) => setFrames((current) => ({ ...current, [placement]: frame }))}
+        />
       </section>
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex flex-col gap-2">

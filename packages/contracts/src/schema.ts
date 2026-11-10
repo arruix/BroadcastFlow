@@ -944,9 +944,54 @@ export interface paths {
             };
             cookie?: never;
         };
-        get?: never;
+        /** Ficha del enlace. Vacía si todavía no se guardó. */
+        get: operations["readCampaignShare"];
         /** CU-08 ficha. Sin imagen, el enlace se publica sin vista previa. */
         put: operations["saveCampaignShare"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/frames": {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** Encuadre guardado por red. Las colocaciones ausentes usan el encuadre inicial. */
+        get: operations["readCampaignFrames"];
+        /** Guarda el punto de enfoque de cada colocación. Los valores se recortan al rango válido. */
+        put: operations["saveCampaignFrames"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/campaigns/{campaignId}/landing": {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        /** Diseño de la página pública. landing es null si todavía no se guardó. */
+        get: operations["readCampaignLanding"];
+        /** Guarda la página pública. El texto se sanea. También actualiza la ficha del enlace. */
+        put: operations["saveCampaignLanding"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1305,7 +1350,7 @@ export interface components {
     schemas: {
         DomainError: {
             /** @enum {string} */
-            code: "email_taken" | "weak_password" | "token_invalid" | "locked" | "notice_required" | "not_eligible" | "electoral_without_policy" | "store_url_invalid" | "commercial_has_no_donation_page" | "live_minutes_exhausted" | "live_network_unavailable" | "live_unavailable" | "rights_retention_active" | "unbalanced" | "oauth_not_linked" | "slug_taken" | "slug_locked" | "slug_invalid" | "email_unverified" | "invalid_credentials" | "mfa_required" | "mfa_enroll_required" | "oauth_not_configured" | "subject_taken" | "dates_invalid" | "country_invalid" | "timezone_invalid" | "forbidden" | "not_draft" | "idempotency_required" | "rate_limited" | "variant_invalid" | "connection_reauth" | "connection_limit" | "network_unavailable" | "share_invalid" | "image_invalid" | "beacon_invalid" | "spend_invalid" | "subscription_inactive" | "plan_unavailable" | "step_up_required" | "identity_unverified" | "payout_unavailable" | "approval_invalid" | "owner_limit" | "platform_web_only" | "membership_exists" | "account_blocked" | "operator_required";
+            code: "email_taken" | "weak_password" | "token_invalid" | "locked" | "notice_required" | "not_eligible" | "electoral_without_policy" | "store_url_invalid" | "commercial_has_no_donation_page" | "live_minutes_exhausted" | "live_network_unavailable" | "live_unavailable" | "rights_retention_active" | "unbalanced" | "oauth_not_linked" | "slug_taken" | "slug_locked" | "slug_invalid" | "email_unverified" | "invalid_credentials" | "mfa_required" | "mfa_enroll_required" | "oauth_not_configured" | "subject_taken" | "dates_invalid" | "country_invalid" | "timezone_invalid" | "forbidden" | "not_draft" | "idempotency_required" | "rate_limited" | "variant_invalid" | "connection_reauth" | "connection_limit" | "network_unavailable" | "share_invalid" | "image_invalid" | "landing_invalid" | "beacon_invalid" | "spend_invalid" | "subscription_inactive" | "plan_unavailable" | "step_up_required" | "identity_unverified" | "payout_unavailable" | "approval_invalid" | "owner_limit" | "platform_web_only" | "membership_exists" | "account_blocked" | "operator_required";
             /** @description Presente cuando el ingreso pide enrolar el segundo factor. */
             ticket?: string;
         };
@@ -1411,6 +1456,9 @@ export interface components {
             /** @description Verdadero con campaña activa, aviso publicado, página de donación y plan con donativos. */
             donateEnabled: boolean;
             share?: components["schemas"]["CampaignShare"] | null;
+            landing?: components["schemas"]["CampaignLanding"] | null;
+            /** @description Encuadre de la portada. El de la página, o si no hay página el de Facebook. null mantiene el recorte al centro. */
+            coverFrame?: components["schemas"]["Frame"] | null;
             notice?: components["schemas"]["PrivacyNotice"] | null;
             /** @description Presente mientras hay una sesión en vivo. El landing cambia el video por este HLS. */
             live?: {
@@ -1475,6 +1523,8 @@ export interface components {
             anonymizedAt?: string | null;
             /** @description Siempre false. No es CFDI deducible. */
             fiscalReceipt?: boolean;
+            /** @description Mensaje de la página pública. No incluye nombre ni correo del donante. */
+            thankYou?: string | null;
         };
         DonorRightsRequest: {
             /** @enum {string} */
@@ -1498,6 +1548,34 @@ export interface components {
             imageKey?: string | null;
         };
         CampaignShare: components["schemas"]["CampaignShareWrite"];
+        /** @description Punto de enfoque. x e y van de 0 a 100. zoom 1 llena el marco y 3 es el máximo. */
+        Frame: {
+            x: number;
+            y: number;
+            zoom: number;
+        };
+        CampaignFrames: {
+            /** @description Clave de colocación. facebook, instagram-feed, instagram-story, tiktok, x, linkedin, whatsapp, youtube. */
+            frames: {
+                [key: string]: components["schemas"]["Frame"];
+            };
+        };
+        CampaignLanding: {
+            title: string;
+            story: string;
+            /** @description https. null usa la imagen de la ficha, si existe. */
+            imageKey?: string | null;
+            hero: components["schemas"]["Frame"];
+            /** @description Color #rrggbb. */
+            accent: string;
+            amountsMinor: number[];
+            cta: string;
+            showProgress: boolean;
+            thankYou: string;
+        };
+        CampaignLandingEnvelope: {
+            landing: components["schemas"]["CampaignLanding"] | null;
+        };
         ContentVariant: {
             /** Format: uuid */
             id: string;
@@ -3124,6 +3202,30 @@ export interface operations {
             };
         };
     };
+    readCampaignShare: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Ficha. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignShare"];
+                };
+            };
+        };
+    };
     saveCampaignShare: {
         parameters: {
             query?: never;
@@ -3148,6 +3250,112 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CampaignShare"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    readCampaignFrames: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Encuadres guardados. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignFrames"];
+                };
+            };
+        };
+    };
+    saveCampaignFrames: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignFrames"];
+            };
+        };
+        responses: {
+            /** @description Encuadres guardados. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignFrames"];
+                };
+            };
+            422: components["responses"]["DomainError"];
+        };
+    };
+    readCampaignLanding: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Diseño o null. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignLandingEnvelope"];
+                };
+            };
+        };
+    };
+    saveCampaignLanding: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Organization-Id": components["parameters"]["OrganizationHeader"];
+            };
+            path: {
+                campaignId: components["parameters"]["CampaignId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CampaignLanding"];
+            };
+        };
+        responses: {
+            /** @description Página guardada. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CampaignLandingEnvelope"];
                 };
             };
             422: components["responses"]["DomainError"];

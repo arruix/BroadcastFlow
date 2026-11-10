@@ -3,7 +3,15 @@ import { DbService } from '../db/db.service';
 import { decrypt, encrypt, randomToken, sha256 } from '../shared/crypto';
 import { DomainException, mapDbError } from '../shared/domain';
 import { assertWritable } from '../shared/subscription';
-import { cleanText } from '../shared/text';
+import {
+  clampFrame,
+  heroDefault,
+  httpsImage,
+  isPlacement,
+  type Frame,
+  type Placement,
+} from '../shared/frame';
+import { cleanPlain, cleanText } from '../shared/text';
 import { FacebookGateway } from './facebook.gateway';
 import { YoutubeGateway } from './youtube.gateway';
 
@@ -271,6 +279,205 @@ export class DistribucionService {
     }
   }
 
+  async readShare(userId: string, organizationId: string, campaignId: string) {
+    await this.requireRole(userId, organizationId, [
+      'owner',
+      'admin',
+      'editor',
+      'publisher',
+    ]);
+    const found = await this.db.asUser(userId, (db) =>
+      db.query<{
+        title: string;
+        description: string;
+        image_key: string | null;
+      }>(
+        `SELECT title, description, image_key FROM campaign_share
+         WHERE campaign_id = $1 AND organization_id = $2`,
+        [campaignId, organizationId],
+      ),
+    );
+    const row = found.rows[0];
+    return {
+      title: row?.title ?? '',
+      description: row?.description ?? '',
+      imageKey: row?.image_key ?? null,
+    };
+  }
+
+  async readFrames(userId: string, organizationId: string, campaignId: string) {
+    await this.requireRole(userId, organizationId, [
+      'owner',
+      'admin',
+      'editor',
+      'publisher',
+    ]);
+    const found = await this.db.asUser(userId, (db) =>
+      db.query<{
+        placement: string;
+        focus_x: number;
+        focus_y: number;
+        zoom: number;
+      }>(
+        `SELECT placement, focus_x, focus_y, zoom FROM campaign_frame
+         WHERE campaign_id = $1 AND organization_id = $2`,
+        [campaignId, organizationId],
+      ),
+    );
+    return { frames: framesFrom(found.rows) };
+  }
+
+  async saveFrames(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    input: { frames?: unknown },
+  ) {
+    await this.requireRole(userId, organizationId, [
+      'owner',
+      'admin',
+      'editor',
+    ]);
+    const clean = readFrameMap(input.frames);
+    try {
+      const saved = await this.db.asUser(userId, async (db) => {
+        const campaign = await db.query(
+          'SELECT id FROM campaign WHERE id = $1 AND organization_id = $2',
+          [campaignId, organizationId],
+        );
+        if (!campaign.rowCount) throw new DomainException('forbidden', 403);
+        for (const item of clean) {
+          await db.query(
+            `INSERT INTO campaign_frame (campaign_id, organization_id, placement, focus_x, focus_y, zoom)
+             SELECT id, organization_id, $3, $4, $5, $6 FROM campaign
+             WHERE id = $1 AND organization_id = $2
+             ON CONFLICT (campaign_id, placement) DO UPDATE
+               SET focus_x = EXCLUDED.focus_x, focus_y = EXCLUDED.focus_y, zoom = EXCLUDED.zoom`,
+            [
+              campaignId,
+              organizationId,
+              item.placement,
+              item.frame.x,
+              item.frame.y,
+              item.frame.zoom,
+            ],
+          );
+        }
+        const rows = await db.query<{
+          placement: string;
+          focus_x: number;
+          focus_y: number;
+          zoom: number;
+        }>(
+          `SELECT placement, focus_x, focus_y, zoom FROM campaign_frame
+           WHERE campaign_id = $1 AND organization_id = $2`,
+          [campaignId, organizationId],
+        );
+        return rows.rows;
+      });
+      return { frames: framesFrom(saved) };
+    } catch (error) {
+      if (error instanceof DomainException) throw error;
+      mapDbError(error);
+    }
+  }
+
+  async readLanding(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+  ) {
+    await this.requireRole(userId, organizationId, [
+      'owner',
+      'admin',
+      'editor',
+      'publisher',
+    ]);
+    const found = await this.db.asUser(userId, (db) =>
+      db.query<LandingRow>(landingSelect, [campaignId, organizationId]),
+    );
+    return { landing: found.rows[0] ? presentLanding(found.rows[0]) : null };
+  }
+
+  async saveLanding(
+    userId: string,
+    organizationId: string,
+    campaignId: string,
+    input: LandingInput,
+  ) {
+    await this.requireRole(userId, organizationId, [
+      'owner',
+      'admin',
+      'editor',
+    ]);
+    const landing = normalizeLanding(input);
+    try {
+      const saved = await this.db.asUser(userId, async (db) => {
+        const campaign = await db.query(
+          'SELECT id FROM campaign WHERE id = $1 AND organization_id = $2',
+          [campaignId, organizationId],
+        );
+        if (!campaign.rowCount) throw new DomainException('forbidden', 403);
+        const row = await db.query<LandingRow>(
+          `INSERT INTO campaign_landing (
+             campaign_id, organization_id, title, story, image_key,
+             hero_x, hero_y, hero_zoom, accent, amounts_minor, cta, show_progress, thank_you
+           )
+           SELECT id, organization_id, $3, $4, $5, $6, $7, $8, $9, $10::integer[], $11, $12, $13
+           FROM campaign WHERE id = $1 AND organization_id = $2
+           ON CONFLICT (campaign_id) DO UPDATE SET
+             title = EXCLUDED.title,
+             story = EXCLUDED.story,
+             image_key = EXCLUDED.image_key,
+             hero_x = EXCLUDED.hero_x,
+             hero_y = EXCLUDED.hero_y,
+             hero_zoom = EXCLUDED.hero_zoom,
+             accent = EXCLUDED.accent,
+             amounts_minor = EXCLUDED.amounts_minor,
+             cta = EXCLUDED.cta,
+             show_progress = EXCLUDED.show_progress,
+             thank_you = EXCLUDED.thank_you,
+             updated_at = now()
+           RETURNING title, story, image_key, hero_x, hero_y, hero_zoom, accent,
+                     amounts_minor, cta, show_progress, thank_you`,
+          [
+            campaignId,
+            organizationId,
+            landing.title,
+            landing.story,
+            landing.imageKey,
+            landing.hero.x,
+            landing.hero.y,
+            landing.hero.zoom,
+            landing.accent,
+            landing.amountsMinor,
+            landing.cta,
+            landing.showProgress,
+            landing.thankYou,
+          ],
+        );
+        if (!row.rowCount) throw new DomainException('forbidden', 403);
+        const card = cleanText(landing.story, 500);
+        if (card) {
+          await db.query(
+            `INSERT INTO campaign_share (campaign_id, organization_id, title, description, image_key)
+             SELECT id, organization_id, $3, $4, $5 FROM campaign WHERE id = $1 AND organization_id = $2
+             ON CONFLICT (campaign_id) DO UPDATE SET
+               title = EXCLUDED.title,
+               description = EXCLUDED.description,
+               image_key = EXCLUDED.image_key`,
+            [campaignId, organizationId, landing.title, card, landing.imageKey],
+          );
+        }
+        return row.rows[0];
+      });
+      return { landing: presentLanding(saved) };
+    } catch (error) {
+      if (error instanceof DomainException) throw error;
+      mapDbError(error);
+    }
+  }
+
   async createItem(userId: string, organizationId: string, campaignId: string) {
     await this.requireRole(userId, organizationId, [
       'owner',
@@ -463,17 +670,21 @@ export class DistribucionService {
         connection_status: string;
         slug: string;
         image_key: string | null;
+        focus_x: number | null;
+        focus_y: number | null;
+        zoom: number | null;
         scheduled_at: Date;
       }>(
         `SELECT p.id, p.content_variant_id, p.social_connection_id, p.scheduled_at,
                 v.body, s.token_ciphertext, s.external_account_id, s.status AS connection_status,
-                c.slug, sh.image_key
+                c.slug, sh.image_key, fr.focus_x, fr.focus_y, fr.zoom
          FROM publication p
          JOIN content_variant v ON v.id = p.content_variant_id
          JOIN content_item i ON i.id = v.content_item_id
          JOIN campaign c ON c.id = i.campaign_id
          JOIN social_connection s ON s.id = p.social_connection_id
          LEFT JOIN campaign_share sh ON sh.campaign_id = c.id
+         LEFT JOIN campaign_frame fr ON fr.campaign_id = c.id AND fr.placement = 'facebook'
          WHERE p.organization_id = $1 AND p.status = 'scheduled' AND p.scheduled_at <= now()
          ORDER BY p.scheduled_at
          FOR UPDATE OF p SKIP LOCKED`,
@@ -491,6 +702,14 @@ export class DistribucionService {
                 imageKey: row.image_key?.startsWith('https://')
                   ? row.image_key
                   : null,
+                frame:
+                  row.focus_x == null
+                    ? null
+                    : {
+                        x: Number(row.focus_x),
+                        y: Number(row.focus_y),
+                        zoom: Number(row.zoom),
+                      },
               })
             : 'terminal';
         if (outcome === 'ok') {
@@ -553,6 +772,133 @@ export class DistribucionService {
     if (!allowed.includes(found.rows[0]?.role ?? ''))
       throw new DomainException('forbidden', 403);
   }
+}
+
+type LandingRow = {
+  title: string;
+  story: string;
+  image_key: string | null;
+  hero_x: number;
+  hero_y: number;
+  hero_zoom: number;
+  accent: string;
+  amounts_minor: number[];
+  cta: string;
+  show_progress: boolean;
+  thank_you: string;
+};
+
+type LandingInput = {
+  title?: unknown;
+  story?: unknown;
+  imageKey?: unknown;
+  hero?: { x?: unknown; y?: unknown; zoom?: unknown };
+  accent?: unknown;
+  amountsMinor?: unknown;
+  cta?: unknown;
+  showProgress?: unknown;
+  thankYou?: unknown;
+};
+
+const landingSelect = `SELECT title, story, image_key, hero_x, hero_y, hero_zoom, accent,
+  amounts_minor, cta, show_progress, thank_you
+  FROM campaign_landing WHERE campaign_id = $1 AND organization_id = $2`;
+
+function framesFrom(
+  rows: { placement: string; focus_x: number; focus_y: number; zoom: number }[],
+) {
+  const frames: Record<string, Frame> = {};
+  for (const row of rows) {
+    const frame = clampFrame({
+      x: row.focus_x,
+      y: row.focus_y,
+      zoom: row.zoom,
+    });
+    if (frame) frames[row.placement] = frame;
+  }
+  return frames;
+}
+
+function readFrameMap(
+  value: unknown,
+): { placement: Placement; frame: Frame }[] {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new DomainException('landing_invalid', 422);
+  }
+  const entries = Object.entries(value as Record<string, unknown>);
+  if (entries.length < 1 || entries.length > 8) {
+    throw new DomainException('landing_invalid', 422);
+  }
+  return entries.map(([key, raw]) => {
+    if (!isPlacement(key) || !raw || typeof raw !== 'object') {
+      throw new DomainException('landing_invalid', 422);
+    }
+    const frame = clampFrame(raw);
+    if (!frame) throw new DomainException('landing_invalid', 422);
+    return { placement: key, frame };
+  });
+}
+
+function normalizeLanding(input: LandingInput) {
+  const title = cleanText(input.title, 140);
+  const story = cleanPlain(input.story, 4000);
+  if (!title || !story) throw new DomainException('landing_invalid', 422);
+  const imageKey = httpsImage(input.imageKey);
+  if (imageKey === undefined) throw new DomainException('image_invalid', 422);
+  const hero = clampFrame(input.hero ?? heroDefault);
+  if (!hero) throw new DomainException('landing_invalid', 422);
+  const accent =
+    typeof input.accent === 'string' ? input.accent.trim().toLowerCase() : '';
+  if (!/^#[0-9a-f]{6}$/.test(accent))
+    throw new DomainException('landing_invalid', 422);
+  if (!Array.isArray(input.amountsMinor))
+    throw new DomainException('landing_invalid', 422);
+  const amountsMinor = input.amountsMinor.map((item) => Number(item));
+  if (
+    amountsMinor.length < 1 ||
+    amountsMinor.length > 6 ||
+    amountsMinor.some(
+      (amount) =>
+        !Number.isInteger(amount) || amount < 100 || amount > 100_000_000,
+    )
+  ) {
+    throw new DomainException('landing_invalid', 422);
+  }
+  if (
+    input.showProgress !== undefined &&
+    typeof input.showProgress !== 'boolean'
+  ) {
+    throw new DomainException('landing_invalid', 422);
+  }
+  return {
+    title,
+    story,
+    imageKey,
+    hero,
+    accent,
+    amountsMinor,
+    cta: cleanText(input.cta, 80),
+    showProgress: input.showProgress !== false,
+    thankYou: cleanPlain(input.thankYou, 400),
+  };
+}
+
+function presentLanding(row: LandingRow) {
+  return {
+    title: row.title,
+    story: row.story,
+    imageKey: row.image_key,
+    hero: {
+      x: Number(row.hero_x),
+      y: Number(row.hero_y),
+      zoom: Number(row.hero_zoom),
+    },
+    accent: row.accent,
+    amountsMinor: row.amounts_minor.map((amount) => Number(amount)),
+    cta: row.cta,
+    showProgress: row.show_progress,
+    thankYou: row.thank_you,
+  };
 }
 
 function presentConnection(row: ConnectionRow) {

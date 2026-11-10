@@ -54,21 +54,31 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
 
 const presetAmounts = ["10", "25", "50", "100"];
 
+function asPresets(amounts?: number[]) {
+  if (!amounts?.length) return presetAmounts;
+  return amounts.map((value) => (Number.isInteger(value) ? String(value) : value.toFixed(2)));
+}
+
 // Intención de donar: registra monto, nombre, correo y visita. No se cobra nada
 // ni se piden datos de tarjeta; el cobro se habilitará con una pasarela real.
 export function Donar({
   slug,
   currency,
   noticeVersion,
+  amounts,
+  cta,
 }: {
   slug: string;
   currency: string;
   noticeVersion: number | null;
+  amounts?: number[];
+  cta?: string;
 }) {
   const { tx } = useTx();
   const router = useRouter();
 
-  const [amount, setAmount] = useState("25");
+  const presets = asPresets(amounts);
+  const [amount, setAmount] = useState(presets[1] ?? presets[0] ?? "25");
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -143,7 +153,7 @@ export function Donar({
     <div className="flex flex-col gap-4">
       <div>
         <h2 className="text-3xl font-extrabold tracking-tight text-slate-900">
-          {tx("Quiero donar", "I want to donate")}
+          {cta || tx("Quiero donar", "I want to donate")}
         </h2>
         <p className="mt-2.5 rounded-xl border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-950">
           {tx(
@@ -158,17 +168,14 @@ export function Donar({
           <label className="text-sm font-semibold text-slate-800">
             {tx("Monto que te gustaría donar", "Amount you would like to donate")} ({currency})
           </label>
-          <div className="grid grid-cols-4 gap-2">
-            {presetAmounts.map((preset) => (
+          <div className="amount-row">
+            {presets.map((preset) => (
               <button
                 key={preset}
                 type="button"
                 onClick={() => setAmount(preset)}
-                className={`min-h-10 rounded-xl text-sm font-bold border transition ${
-                  amount === preset
-                    ? "border-teal-700 bg-teal-50 text-teal-700 ring-2 ring-teal-700/20"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
+                className={`amount-chip${amount === preset ? " is-on" : ""}`}
+                aria-pressed={amount === preset}
               >
                 ${preset}
               </button>

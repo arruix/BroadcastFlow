@@ -240,6 +240,7 @@ export default function TableroCampana({ params }: { params: Promise<{ campaignI
               {tx("Aviso", "Notice")}
             </Link>
             <Link className="chip" href={`/campanas/${campaign.id}/pieza`}>{tx("Pieza para redes", "Social piece")}</Link>
+            <Link className="chip" href={`/campanas/${campaign.id}/pagina`}>{tx("Página pública", "Public page")}</Link>
             {demoMode ? null : <Link className="chip" href="/conexiones">{tx("Conexiones", "Connections")}</Link>}
           </div>
         </section>
