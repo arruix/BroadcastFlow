@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DbService, type Queryable } from '../db/db.service';
-import { MailService } from '../mail/mail.service';
+import { mailLocale, MailService } from '../mail/mail.service';
 import { randomToken, sha256 } from '../shared/crypto';
 import { DomainException, mapDbError } from '../shared/domain';
 import { assertWritable } from '../shared/subscription';
@@ -77,6 +77,7 @@ export class OrganizacionService {
     organizationId: string,
     email: string,
     role: string,
+    locale?: string,
   ) {
     const normalized = email.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+$/.test(normalized))
@@ -140,7 +141,12 @@ export class OrganizacionService {
           expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         };
       });
-      await this.mail.send({ to: normalized, purpose: 'invite', token });
+      await this.mail.send({
+        to: normalized,
+        purpose: 'invite',
+        token,
+        locale: mailLocale(locale),
+      });
       return saved;
     } catch (error) {
       if (error instanceof DomainException) throw error;

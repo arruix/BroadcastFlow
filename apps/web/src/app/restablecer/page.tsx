@@ -3,61 +3,66 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
-import { Idioma, useTx } from "@/lib/i18n";
 import { api, explain } from "@/lib/api";
+import { useTx } from "@/lib/i18n";
+import { AuthAlert, AuthButton, AuthFrame, fieldClass } from "@/app/auth-frame";
 
-function RestablecerForm() {
-  const { tx } = useTx();
+function Formulario() {
   const params = useSearchParams();
-  const [token, setToken] = useState(params.get("token") ?? "");
+  const initial = params.get("token") ?? "";
+  const { t, tx } = useTx();
+  const copy = t.auth;
+  const [token, setToken] = useState(initial);
   const [password, setPassword] = useState("");
   const [done, setDone] = useState(false);
-  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setBusy(true);
+    setError("");
     try {
-      await api("/auth/password/reset", { method: "POST", body: JSON.stringify({ token, password }) });
+      await api("/auth/password/reset", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
       setDone(true);
-    } catch (error) {
-      setMessage(explain(error));
+    } catch (caught) {
+      setError(explain(caught));
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col gap-6 px-4 py-10">
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="text-3xl font-semibold">{tx("Elegir contraseña", "Choose a password")}</h1>
-        <Idioma />
-      </div>
+    <AuthFrame eyebrow={copy.console} title={tx("Elegir contraseña", "Choose a password")}>
       {done ? (
-        <Link className="inline-flex min-h-11 items-center" href="/ingresar">
-          {tx("Entrar", "Sign in")}
+        <Link className="inline-flex min-h-11 items-center justify-center rounded-xl bg-neutral-900 px-4 text-sm font-semibold text-white" href="/ingresar">
+          {copy.signIn}
         </Link>
       ) : (
-        <form className="flex flex-col gap-4" onSubmit={submit}>
-          <label className="flex flex-col gap-1">
+        <form className="grid gap-4" onSubmit={(event) => void submit(event)}>
+          <label className="grid gap-1 text-sm">
             {tx("Token", "Token")}
-            <input className="min-h-11 rounded border px-3" value={token} onChange={(event) => setToken(event.target.value)} required />
+            <input className={fieldClass} onChange={(event) => setToken(event.target.value)} required value={token} />
           </label>
-          <label className="flex flex-col gap-1">
+          <label className="grid gap-1 text-sm">
             {tx("Contraseña nueva", "New password")}
-            <input className="min-h-11 rounded border px-3" type="password" minLength={12} value={password} onChange={(event) => setPassword(event.target.value)} required />
+            <input className={fieldClass} minLength={12} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />
           </label>
-          {message ? <p>{message}</p> : null}
-          <button className="min-h-11 rounded bg-neutral-900 px-4 text-white" type="submit">
-            {tx("Guardar", "Save")}
-          </button>
+          {error ? <AuthAlert>{error}</AuthAlert> : null}
+          <AuthButton busy={busy} busyLabel={copy.saving}>{tx("Guardar", "Save")}</AuthButton>
         </form>
       )}
-    </main>
+    </AuthFrame>
   );
 }
 
 export default function Restablecer() {
   return (
     <Suspense>
-      <RestablecerForm />
+      <Formulario />
     </Suspense>
   );
 }

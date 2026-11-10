@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import argon2 from 'argon2';
 import { randomBytes } from 'crypto';
 import { DbService, Queryable } from '../db/db.service';
-import { MailService } from '../mail/mail.service';
+import { mailLocale, MailService } from '../mail/mail.service';
 import {
   base32,
   decrypt,
@@ -41,7 +41,7 @@ export class IdentidadService {
     private readonly mail: MailService,
   ) {}
 
-  async register(email: string, password: string) {
+  async register(email: string, password: string, locale?: string) {
     if (!this.mail.canDeliver())
       throw new DomainException('mail_not_configured', 503);
     const normalized = normalizeEmail(email);
@@ -68,10 +68,15 @@ export class IdentidadService {
     } catch (error) {
       mapDbError(error);
     }
-    await this.mail.send({ to: normalized, purpose: 'verify', token });
+    await this.mail.send({
+      to: normalized,
+      purpose: 'verify',
+      token,
+      locale: mailLocale(locale),
+    });
   }
 
-  async resendVerification(email: string) {
+  async resendVerification(email: string, locale?: string) {
     if (!this.mail.canDeliver())
       throw new DomainException('mail_not_configured', 503);
     const normalized = normalizeEmail(email);
@@ -93,7 +98,13 @@ export class IdentidadService {
       );
       deliver = true;
     });
-    if (deliver) await this.mail.send({ to: normalized, purpose: 'verify', token });
+    if (deliver)
+      await this.mail.send({
+        to: normalized,
+        purpose: 'verify',
+        token,
+        locale: mailLocale(locale),
+      });
   }
 
   async verifyEmail(token: string) {
@@ -210,7 +221,7 @@ export class IdentidadService {
     );
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, locale?: string) {
     if (!this.mail.canDeliver())
       throw new DomainException('mail_not_configured', 503);
     const normalized = normalizeEmail(email);
@@ -229,7 +240,13 @@ export class IdentidadService {
       );
       deliver = true;
     });
-    if (deliver) await this.mail.send({ to: normalized, purpose: 'reset', token });
+    if (deliver)
+      await this.mail.send({
+        to: normalized,
+        purpose: 'reset',
+        token,
+        locale: mailLocale(locale),
+      });
   }
 
   async resetPassword(token: string, password: string) {
