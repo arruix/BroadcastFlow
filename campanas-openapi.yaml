@@ -1194,6 +1194,19 @@ paths:
     parameters:
       - $ref: "#/components/parameters/CampaignId"
       - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      tags: [distribucion]
+      operationId: readCampaignShare
+      summary: Ficha del enlace. Vacía si todavía no se guardó.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Ficha.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignShare"
     put:
       tags: [distribucion]
       operationId: saveCampaignShare
@@ -1213,6 +1226,82 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CampaignShare"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/frames:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      tags: [distribucion]
+      operationId: readCampaignFrames
+      summary: Encuadre guardado por red. Las colocaciones ausentes usan el encuadre inicial.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Encuadres guardados.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignFrames"
+    put:
+      tags: [distribucion]
+      operationId: saveCampaignFrames
+      summary: Guarda el punto de enfoque de cada colocación. Los valores se recortan al rango válido.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignFrames"
+      responses:
+        "200":
+          description: Encuadres guardados.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignFrames"
+        "422":
+          $ref: "#/components/responses/DomainError"
+  /campaigns/{campaignId}/landing:
+    parameters:
+      - $ref: "#/components/parameters/CampaignId"
+      - $ref: "#/components/parameters/OrganizationHeader"
+    get:
+      tags: [distribucion]
+      operationId: readCampaignLanding
+      summary: Diseño de la página pública. landing es null si todavía no se guardó.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Diseño o null.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignLandingEnvelope"
+    put:
+      tags: [distribucion]
+      operationId: saveCampaignLanding
+      summary: Guarda la página pública. El texto se sanea. También actualiza la ficha del enlace.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CampaignLanding"
+      responses:
+        "200":
+          description: Página guardada.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignLandingEnvelope"
         "422":
           $ref: "#/components/responses/DomainError"
   /campaigns/{campaignId}/content-items:
@@ -1602,6 +1691,7 @@ components:
             - network_unavailable
             - share_invalid
             - image_invalid
+            - landing_invalid
             - beacon_invalid
             - spend_invalid
             - subscription_inactive
@@ -1757,6 +1847,15 @@ components:
           nullable: true
           allOf:
             - $ref: "#/components/schemas/CampaignShare"
+        landing:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CampaignLanding"
+        coverFrame:
+          nullable: true
+          description: Encuadre de la portada. El de la página, o si no hay página el de Facebook. null mantiene el recorte al centro.
+          allOf:
+            - $ref: "#/components/schemas/Frame"
         notice:
           nullable: true
           allOf:
@@ -1822,6 +1921,10 @@ components:
           description: Solo en el endpoint autenticado de derechos. El GET público no lo incluye.
         anonymizedAt: { type: string, format: date-time, nullable: true }
         fiscalReceipt: { type: boolean, description: Siempre false. No es CFDI deducible. }
+        thankYou:
+          type: string
+          nullable: true
+          description: Mensaje de la página pública. No incluye nombre ni correo del donante.
     DonorRightsRequest:
       type: object
       required: [action]
@@ -1850,6 +1953,50 @@ components:
     CampaignShare:
       allOf:
         - $ref: "#/components/schemas/CampaignShareWrite"
+    Frame:
+      type: object
+      required: [x, y, zoom]
+      description: Punto de enfoque. x e y van de 0 a 100. zoom 1 llena el marco y 3 es el máximo.
+      properties:
+        x: { type: number }
+        y: { type: number }
+        zoom: { type: number }
+    CampaignFrames:
+      type: object
+      required: [frames]
+      properties:
+        frames:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/Frame"
+          description: Clave de colocación. facebook, instagram-feed, instagram-story, tiktok, x, linkedin, whatsapp, youtube.
+    CampaignLanding:
+      type: object
+      required: [title, story, hero, accent, amountsMinor, cta, showProgress, thankYou]
+      properties:
+        title: { type: string }
+        story: { type: string }
+        imageKey:
+          type: string
+          nullable: true
+          description: https. null usa la imagen de la ficha, si existe.
+        hero:
+          $ref: "#/components/schemas/Frame"
+        accent: { type: string, description: "Color #rrggbb." }
+        amountsMinor:
+          type: array
+          items: { type: integer, format: int64 }
+        cta: { type: string }
+        showProgress: { type: boolean }
+        thankYou: { type: string }
+    CampaignLandingEnvelope:
+      type: object
+      required: [landing]
+      properties:
+        landing:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/CampaignLanding"
     ContentVariant:
       type: object
       required: [id, network, body, valid]

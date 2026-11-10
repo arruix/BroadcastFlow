@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { api, explain } from "@/lib/api";
@@ -91,6 +92,7 @@ export default function Aviso({ params }: { params: Promise<{ campaignId: string
         <h1 className="text-4xl">{campaign?.name ?? tx("Aviso", "Notice")}</h1>
         {campaign ? (
           <p className="flex flex-wrap gap-2">
+            <Link className="chip" href={`/campanas/${campaign.id}/pagina`}>{tx("Diseñar página", "Design the page")}</Link>
             <span className="status">{(t.kind as Record<string, string>)[campaign.kind] ?? campaign.kind}</span>
             <span className={`status status-${campaign.status}`}>{(t.status as Record<string, string>)[campaign.status] ?? campaign.status}</span>
           </p>

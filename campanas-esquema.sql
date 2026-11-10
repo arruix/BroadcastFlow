@@ -316,6 +316,38 @@ CREATE TABLE campaign_share (
   image_key text
 );
 
+-- Encuadre por colocación. x/y son el punto de enfoque en porcentaje. zoom 1 llena el marco.
+CREATE TABLE campaign_frame (
+  campaign_id uuid NOT NULL REFERENCES campaign (id),
+  organization_id uuid NOT NULL REFERENCES organization (id),
+  placement text NOT NULL CHECK (placement IN (
+    'facebook', 'instagram-feed', 'instagram-story', 'tiktok', 'x', 'linkedin', 'whatsapp', 'youtube'
+  )),
+  focus_x double precision NOT NULL CHECK (focus_x >= 0 AND focus_x <= 100),
+  focus_y double precision NOT NULL CHECK (focus_y >= 0 AND focus_y <= 100),
+  zoom double precision NOT NULL CHECK (zoom >= 1 AND zoom <= 3),
+  PRIMARY KEY (campaign_id, placement)
+);
+
+-- Diseño de la página pública. El texto ya llega saneado. La imagen, si hay, es https.
+CREATE TABLE campaign_landing (
+  campaign_id uuid PRIMARY KEY REFERENCES campaign (id),
+  organization_id uuid NOT NULL REFERENCES organization (id),
+  title text NOT NULL CHECK (char_length(btrim(title)) > 0 AND char_length(title) <= 140),
+  story text NOT NULL CHECK (char_length(btrim(story)) > 0 AND char_length(story) <= 4000),
+  image_key text CHECK (image_key IS NULL OR (image_key LIKE 'https://%' AND char_length(image_key) <= 2000)),
+  hero_x double precision NOT NULL DEFAULT 50 CHECK (hero_x >= 0 AND hero_x <= 100),
+  hero_y double precision NOT NULL DEFAULT 35 CHECK (hero_y >= 0 AND hero_y <= 100),
+  hero_zoom double precision NOT NULL DEFAULT 1 CHECK (hero_zoom >= 1 AND hero_zoom <= 3),
+  accent text NOT NULL DEFAULT '#0f766e' CHECK (accent ~ '^#[0-9a-f]{6}$'),
+  amounts_minor integer[] NOT NULL DEFAULT ARRAY[1000, 2500, 5000, 10000],
+  cta text NOT NULL DEFAULT '' CHECK (char_length(cta) <= 80),
+  show_progress boolean NOT NULL DEFAULT true,
+  thank_you text NOT NULL DEFAULT '' CHECK (char_length(thank_you) <= 400),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT campaign_landing_amounts CHECK (cardinality(amounts_minor) BETWEEN 1 AND 6)
+);
+
 CREATE TABLE content_item (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id uuid NOT NULL REFERENCES organization (id),
@@ -806,7 +838,7 @@ DECLARE
 BEGIN
   FOREACH t IN ARRAY ARRAY[
     'membership', 'invitation', 'device', 'subscription', 'invoice', 'campaign',
-    'privacy_notice', 'campaign_share', 'content_item', 'content_variant', 'content_approval',
+    'privacy_notice', 'campaign_share', 'campaign_frame', 'campaign_landing', 'content_item', 'content_variant', 'content_approval',
     'social_connection', 'publication', 'publication_attempt', 'donation_page', 'mandate',
     'donation', 'campaign_ledger_entry', 'payout', 'ad_spend', 'visit_event', 'metric_bucket',
     'live_session', 'live_destination', 'live_usage', 'notification', 'report_job', 'push_token',
@@ -1022,6 +1054,7 @@ GRANT DELETE ON membership TO app_api;
 GRANT SELECT, INSERT, UPDATE ON
   app_user, organization, membership, invitation, session, mfa_secret, mfa_recovery_code,
   email_token, device, subscription, invoice, campaign, privacy_notice, campaign_share,
+  campaign_frame, campaign_landing,
   content_item, content_variant, content_approval, social_connection, publication,
   donation_page, mandate, donation, payout, payout_account, ad_spend, live_session, live_destination,
   live_usage, notification, push_token, report_job, outbox_event
@@ -1120,6 +1153,36 @@ CREATE POLICY share_write ON campaign_share FOR INSERT TO app_api WITH CHECK (
   OR 'editor' = ANY (app_member_roles(organization_id))
 );
 CREATE POLICY share_update ON campaign_share FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY frame_write ON campaign_frame FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY frame_update ON campaign_frame FOR UPDATE TO app_api USING (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+) WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+
+CREATE POLICY landing_write ON campaign_landing FOR INSERT TO app_api WITH CHECK (
+  'owner' = ANY (app_member_roles(organization_id))
+  OR 'admin' = ANY (app_member_roles(organization_id))
+  OR 'editor' = ANY (app_member_roles(organization_id))
+);
+CREATE POLICY landing_update ON campaign_landing FOR UPDATE TO app_api USING (
   'owner' = ANY (app_member_roles(organization_id))
   OR 'admin' = ANY (app_member_roles(organization_id))
   OR 'editor' = ANY (app_member_roles(organization_id))

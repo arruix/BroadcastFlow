@@ -16,7 +16,7 @@ const providerName: Record<string, string> = {
 };
 
 // Método de pago externo del dueño de la campaña. BroadcastFlow no cobra ni procesa el dinero.
-export function MetodoPago({ slug, method }: { slug: string; method: PaymentMethod }) {
+export function MetodoPago({ slug, method, cta }: { slug: string; method: PaymentMethod; cta?: string }) {
   const { tx } = useTx();
   const [showTransfer, setShowTransfer] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -57,7 +57,7 @@ export function MetodoPago({ slug, method }: { slug: string; method: PaymentMeth
             rel="noopener noreferrer"
             onClick={() => sendVisit(slug, "pay_link")}
           >
-            {provider ? tx(`Donar con ${provider}`, `Donate with ${provider}`) : tx("Donar", "Donate")}
+            {cta || (provider ? tx(`Donar con ${provider}`, `Donate with ${provider}`) : tx("Donar", "Donate"))}
           </a>
           <small className="pago-nota">{tx("Se abre en una pestaña nueva.", "Opens in a new tab.")}</small>
         </div>

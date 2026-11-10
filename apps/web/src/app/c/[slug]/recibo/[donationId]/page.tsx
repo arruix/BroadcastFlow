@@ -10,6 +10,7 @@ type Receipt = {
   platformFeeMinor: number;
   currency: string;
   fiscalReceipt: boolean;
+  thankYou?: string | null;
 };
 
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
@@ -37,7 +38,7 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
           <p className="eyebrow">{tx("Intención registrada", "Pledge recorded")}</p>
           <Idioma />
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{receipt.thankYou || tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
         <p className="text-sm text-slate-600">
           {tx(
             "Registramos tu intención. No hubo cobro. BroadcastFlow no confirma un pago hecho en Mercado Pago, PayPal o Stripe, y no envía un correo de esta intención.",
@@ -61,7 +62,7 @@ export default async function Recibo({ params }: { params: Promise<{ donationId:
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
+        <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">{receipt.thankYou || tx("¡Gracias por tu apoyo!", "Thank you for your support!")}</h1>
         <p className="text-sm text-slate-600">
           {tx(
             "El libro marcó este registro como liquidado. Eso no significa que BroadcastFlow haya cobrado una tarjeta ni que un clic al enlace externo esté verificado.",

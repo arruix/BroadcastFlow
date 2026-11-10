@@ -3,13 +3,11 @@ import { demoMode } from "@/lib/demo";
 import { notFound } from "next/navigation";
 import { Idioma } from "@/lib/i18n";
 import { pick, serverLocale } from "@/lib/locale";
-
-function fillText(text: string, values: Record<string, string>) {
-  return text.replace(/\{(\w+)\}/g, (_, key: string) => values[key] ?? "");
-}
+import type { Frame } from "@/lib/encuadre";
 import { MetodoPago, type PaymentMethod } from "./metodo-pago";
 import { Donar } from "./donar";
 import { Pixel } from "./pixel";
+import { PaginaPublica, type LandingDesign } from "./vista";
 
 type PublicCampaign = {
   name: string;
@@ -19,6 +17,8 @@ type PublicCampaign = {
   donateEnabled: boolean;
   paymentMethod: PaymentMethod | null;
   share: { title: string; description: string; imageKey: string | null } | null;
+  landing: LandingDesign | null;
+  coverFrame: Frame | null;
   notice: {
     version?: number;
     controller: string;
@@ -38,12 +38,12 @@ type PublicCampaign = {
   };
 };
 
-function amount(minor: number, currency: string) {
-  return `$${(minor / 100).toLocaleString("es-MX", { maximumFractionDigits: 0 })} ${currency}`;
-}
-
 const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001/v1";
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
+function httpsImage(value: string | null | undefined) {
+  return value?.startsWith("https://") ? value : null;
+}
 
 async function loadCampaign(slug: string): Promise<PublicCampaign | null> {
   const response = await fetch(`${apiUrl}/public/campaigns/${slug}`, { cache: "no-store" });
@@ -55,12 +55,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const campaign = await loadCampaign(slug);
   if (!campaign) return {};
-  const title = campaign.share?.title ?? campaign.name;
-  const description = campaign.share?.description ?? undefined;
+  const title = campaign.landing?.title || campaign.share?.title || campaign.name;
+  const description = campaign.landing?.story || campaign.share?.description || undefined;
   const url = `${siteUrl}/c/${campaign.slug}`;
-  const image = campaign.share?.imageKey?.startsWith("https://")
-    ? campaign.share.imageKey
-    : `${siteUrl}/og-default.png`;
+  const image = httpsImage(campaign.landing?.imageKey) || httpsImage(campaign.share?.imageKey) || `${siteUrl}/og-default.png`;
   return {
     metadataBase: new URL(siteUrl),
     title,
@@ -98,60 +96,48 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
     );
   }
   const campaign = (await response.json()) as PublicCampaign;
+  const landing = campaign.landing;
   const hasExternal = Boolean(campaign.paymentMethod?.link || campaign.paymentMethod?.transfer);
-
-  const cover = campaign.share?.imageKey?.startsWith("https://") ? campaign.share.imageKey : null;
-  const story = campaign.share?.description ?? null;
-  const confirmed = campaign.progress?.confirmedMinor ?? 0;
-  const confirmedCount = campaign.progress?.confirmedCount ?? 0;
-  const intentions = campaign.progress?.intentionMinor ?? 0;
-  const intentionCount = campaign.progress?.intentionCount ?? 0;
-  const goal = campaign.goalMinor ?? null;
-  const share = goal ? Math.min(100, Math.round((confirmed / goal) * 100)) : null;
+  const cover = httpsImage(landing?.imageKey) || httpsImage(campaign.share?.imageKey);
+  const story = landing?.story || campaign.share?.description || null;
+  const title = landing?.title || campaign.name;
+  const amounts = landing?.amountsMinor?.map((minor) => minor / 100);
+  const cta = landing?.cta || undefined;
 
   return (
-    <div className="public-page">
+    <>
       {campaign.notice ? <Pixel slug={campaign.slug} /> : null}
-      <header className="public-top">
-        <p className="eyebrow flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-[var(--accent)]" />
-          {tx("Página oficial de campaña", "Official campaign page")}
-        </p>
-        <Idioma />
-      </header>
-      <main className="mx-auto grid max-w-5xl items-start gap-8 px-4 pb-12 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <section className="flex flex-col gap-6">
-          <div className="public-cover">
-            {cover ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={cover} alt="" />
-            ) : (
-              <span aria-hidden="true">{campaign.name.slice(0, 1)}</span>
-            )}
-          </div>
-          <h1 className="text-4xl font-extrabold tracking-tight text-slate-900">{campaign.name}</h1>
-          {campaign.live ? (
-            <figure className="flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm">
-              <div className="flex items-center gap-2">
-                <span className="relative flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-rose-500"></span>
-                </span>
-                <span className="rounded-full border border-rose-200 bg-rose-50 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider text-rose-600">{tx("En vivo", "Live")}</span>
-              </div>
-              <video className="w-full rounded-xl bg-slate-950 shadow-md" controls src={campaign.live.playbackUrl} />
-            </figure>
-          ) : null}
-          {story ? <p className="public-story">{story}</p> : null}
-          {campaign.status === "borrador" ? (
+      <PaginaPublica
+        tx={tx}
+        name={title}
+        story={story}
+        cover={cover}
+        frame={landing?.hero ?? campaign.coverFrame}
+        accent={landing?.accent ?? null}
+        showProgress={landing ? landing.showProgress : true}
+        goalMinor={campaign.goalMinor ?? null}
+        confirmedMinor={campaign.progress?.confirmedMinor ?? 0}
+        confirmedCount={campaign.progress?.confirmedCount ?? 0}
+        intentionMinor={campaign.progress?.intentionMinor ?? 0}
+        intentionCount={campaign.progress?.intentionCount ?? 0}
+        currency={campaign.currency}
+        liveUrl={campaign.live?.playbackUrl ?? null}
+        idioma={<Idioma />}
+        notice={campaign.notice}
+        statusNote={
+          campaign.status === "borrador" ? (
             <p className="note">
               {tx(
                 "Esta página ya se puede abrir con el enlace mientras sigue en borrador. El pago externo y los clics de pago se muestran cuando la campaña está activa y el aviso está publicado.",
                 "This page can already be opened with the link while it is still a draft. The external payment and payment clicks appear when the campaign is active and the notice is published.",
               )}
             </p>
-          ) : null}
-          {demoMode ? null : (
+          ) : !campaign.notice ? (
+            <p className="note">{tx("El aviso sigue en borrador. Esta página no mide ni cobra.", "The notice is still a draft. This page does not measure or charge.")}</p>
+          ) : null
+        }
+        measureNote={
+          demoMode ? null : (
             <div className="flex items-start gap-3.5 rounded-2xl border border-teal-100 bg-teal-50/70 p-4 text-slate-800">
               <div className="flex flex-col gap-0.5">
                 <h2 className="text-sm font-bold text-slate-900">{tx("Visitas y clics", "Visits and clicks")}</h2>
@@ -163,70 +149,27 @@ export default async function CampaignLanding({ params }: { params: Promise<{ sl
                 </p>
               </div>
             </div>
-          )}
-          {!campaign.notice ? (
-            <p className="note">{tx("El aviso sigue en borrador. Esta página no mide ni cobra.", "The notice is still a draft. This page does not measure or charge.")}</p>
-          ) : null}
-        </section>
-        <aside className="panel donate-card flex flex-col gap-4 p-5 lg:sticky lg:top-6">
-          <div className="flex flex-col gap-2">
-            <p className="text-3xl font-extrabold text-slate-900">{amount(confirmed, campaign.currency)}</p>
-            <p className="text-sm text-[var(--muted)]">
-              {goal
-                ? fillText(tx("confirmados en el libro, de una meta de {goal}", "confirmed on the ledger, of a {goal} goal"), { goal: amount(goal, campaign.currency) })
-                : tx("confirmados en el libro", "confirmed on the ledger")}
-            </p>
-            {share !== null ? (
-              <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={share} aria-label={tx("Avance de la meta", "Goal progress")}>
-                <span style={{ width: `${Math.max(2, share)}%` }} />
-              </div>
+          )
+        }
+        donate={
+          <>
+            {campaign.donateEnabled && hasExternal ? <MetodoPago slug={campaign.slug} method={campaign.paymentMethod!} cta={cta} /> : null}
+            {campaign.donateEnabled && hasExternal ? (
+              <details>
+                <summary>{tx("¿Solo quieres registrar tu intención de donar?", "Just want to register your intent to donate?")}</summary>
+                <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} amounts={amounts} cta={cta} />
+              </details>
             ) : null}
-            <p className="text-sm text-slate-700">
-              {share !== null ? `${share}% · ` : ""}
-              {confirmedCount === 1
-                ? tx("1 pago confirmado en el libro", "1 payment confirmed on the ledger")
-                : fillText(tx("{n} pagos confirmados en el libro", "{n} payments confirmed on the ledger"), { n: String(confirmedCount) })}
-            </p>
-            {intentionCount > 0 ? (
-              <p className="text-sm text-[var(--muted)]">
-                {fillText(
-                  tx(
-                    "{amount} en {count} intenciones. No son pagos confirmados ni los cobra BroadcastFlow.",
-                    "{amount} in {count} intentions. These are not confirmed payments and BroadcastFlow does not collect them.",
-                  ),
-                  { amount: amount(intentions, campaign.currency), count: String(intentionCount) },
-                )}
-              </p>
+            {campaign.donateEnabled && !hasExternal ? (
+              <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} amounts={amounts} cta={cta} />
             ) : null}
-          </div>
-          {campaign.donateEnabled && hasExternal ? <MetodoPago slug={campaign.slug} method={campaign.paymentMethod!} /> : null}
-          {campaign.donateEnabled && hasExternal ? (
-            <details>
-              <summary>{tx("¿Solo quieres registrar tu intención de donar?", "Just want to register your intent to donate?")}</summary>
-              <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} />
-            </details>
-          ) : null}
-          {campaign.donateEnabled && !hasExternal ? <Donar slug={campaign.slug} currency={campaign.currency} noticeVersion={campaign.notice?.version ?? null} /> : null}
-          {campaign.status === "pausada" ? <p>{tx("La página está en pausa.", "The page is paused.")}</p> : null}
-          {campaign.notice && !campaign.donateEnabled && campaign.status !== "pausada" ? (
-            <p>{tx("Donar se enciende cuando la campaña está activa.", "Donate turns on when the campaign is active.")}</p>
-          ) : null}
-        </aside>
-      </main>
-      <footer className="public-footer">
-        {campaign.notice ? (
-          <details id="aviso">
-            <summary>{tx("Aviso de privacidad", "Privacy notice")}</summary>
-            <div className="flex flex-col gap-1 pt-2">
-              <p>{tx("Responsable", "Controller")}: {campaign.notice.controller}</p>
-              <p>{tx("Finalidad", "Purpose")}: {campaign.notice.purpose}</p>
-              <p>{tx("Datos", "Data")}: {campaign.notice.dataCategories}</p>
-              <p>{tx("Plazo", "Retention")}: {campaign.notice.retention}</p>
-            </div>
-          </details>
-        ) : null}
-        <p>BroadcastFlow</p>
-      </footer>
-    </div>
+            {campaign.status === "pausada" ? <p>{tx("La página está en pausa.", "The page is paused.")}</p> : null}
+            {campaign.notice && !campaign.donateEnabled && campaign.status !== "pausada" ? (
+              <p>{tx("Donar se enciende cuando la campaña está activa.", "Donate turns on when the campaign is active.")}</p>
+            ) : null}
+          </>
+        }
+      />
+    </>
   );
 }

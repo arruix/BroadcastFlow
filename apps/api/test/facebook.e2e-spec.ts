@@ -157,6 +157,12 @@ describe('historias 7 a 9', () => {
         scheduledAt: future(),
       })
       .expect(201);
+    await request(app.getHttpServer())
+      .put(`/v1/campaigns/${campaign.id}/frames`)
+      .set('authorization', `Bearer ${session}`)
+      .set('x-organization-id', org.body.id)
+      .send({ frames: { facebook: { x: 42, y: 18, zoom: 1.25 } } })
+      .expect(200);
     await due(db, scheduled.body.id);
     facebook.outcome = 'ok';
     facebook.publishes = [];
@@ -171,6 +177,7 @@ describe('historias 7 a 9', () => {
         publicationId: scheduled.body.id,
         imageKey: null,
         body: 'El río sigue abierto.',
+        frame: { x: 42, y: 18, zoom: 1.25 },
       }),
     ]);
     const again = await request(app.getHttpServer())

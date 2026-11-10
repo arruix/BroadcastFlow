@@ -2,25 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { useTx } from "@/lib/i18n";
+import { defaultFrame, placements, type Frame, type Placement } from "@/lib/encuadre";
 import { originColor, originLabel } from "@/lib/origen";
+import { Encuadre } from "../../encuadre";
 
-// Vista previa por red, solo en el navegador (URL.createObjectURL). No sube nada
-// ni valida medidas: los marcos son aproximados hasta confirmar las guías de cada red.
-const frames = [
-  { network: "facebook", shape: "feed", place: ["Publicación", "Post"] },
-  { network: "instagram", shape: "square", place: ["Feed", "Feed"] },
-  { network: "instagram", shape: "vertical", place: ["Historia / Reel", "Story / Reel"] },
-  { network: "tiktok", shape: "vertical", place: ["Video", "Video"] },
-  { network: "x", shape: "feed", place: ["Publicación", "Post"] },
-  { network: "linkedin", shape: "feed", place: ["Publicación", "Post"] },
-  { network: "whatsapp", shape: "vertical", place: ["Estado", "Status"] },
-  { network: "youtube", shape: "vertical", place: ["Shorts", "Shorts"] },
-] as const;
-
-export function PiezaPreview({ file, text, title }: { file: File | null; text: string; title: string }) {
+// Vista previa con la proporción real de cada red. El encuadre se elige aquí
+// y se guarda con la campaña; el archivo sigue viviendo solo en el navegador.
+export function PiezaPreview({
+  file,
+  imageUrl,
+  text,
+  title,
+  frames,
+  onFrame,
+}: {
+  file: File | null;
+  imageUrl?: string;
+  text: string;
+  title: string;
+  frames: Record<Placement, Frame>;
+  onFrame: (placement: Placement, frame: Frame) => void;
+}) {
   const { tx } = useTx();
   const [url, setUrl] = useState("");
-  const video = Boolean(file?.type.startsWith("video/"));
+  const video = Boolean(file?.type.startsWith("video/") && url);
 
   useEffect(() => {
     if (!file) {
@@ -32,37 +37,44 @@ export function PiezaPreview({ file, text, title }: { file: File | null; text: s
     return () => URL.revokeObjectURL(next);
   }, [file]);
 
-  const media = url ? (
-    // eslint-disable-next-line @next/next/no-img-element -- blob: local, no pasa por el optimizador
-    video ? <video src={url} muted loop autoPlay playsInline /> : <img src={url} alt="" />
-  ) : (
-    <span className="preview-placeholder">{(title || "BF").slice(0, 1).toUpperCase()}</span>
-  );
+  const src = url || (imageUrl?.startsWith("https://") ? imageUrl : "");
+  const vertical = (ratio: number) => ratio < 1;
 
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm font-semibold">
-        {tx("Vista previa por red", "Preview by network")} <span className="font-normal text-[var(--muted)]">· {tx("aproximada", "approximate")}</span>
+        {tx("Vista previa por red", "Preview by network")}{" "}
+        <span className="font-normal text-[var(--muted)]">· {tx("proporción de cada red", "each network's ratio")}</span>
+      </p>
+      <p className="text-sm text-[var(--muted)]">
+        {tx(
+          "Arrastra la foto dentro de cada marco. También puedes pellizcar, usar la rueda o el teclado.",
+          "Drag the photo inside each frame. You can also pinch, use the wheel, or the keyboard.",
+        )}
       </p>
       <div className="preview-grid">
-        {frames.map((frame) => (
-          <figure key={`${frame.network}-${frame.shape}`} className={`preview preview-${frame.shape}`}>
+        {placements.map((item) => (
+          <figure key={item.id} className="preview">
             <figcaption className="preview-head">
-              <i className="net-dot" style={{ background: originColor(frame.network) }} />
-              <strong>{originLabel(frame.network, tx)}</strong>
-              <span>{tx(frame.place[0], frame.place[1])}</span>
+              <i className="net-dot" style={{ background: originColor(item.network) }} />
+              <strong>{originLabel(item.network, tx)}</strong>
+              <span>
+                {tx(item.place[0], item.place[1])} · {item.ratioLabel}
+              </span>
             </figcaption>
-            {frame.shape === "vertical" ? (
-              <div className="preview-media">
-                {media}
-                <p className="preview-overlay">{text}</p>
-              </div>
-            ) : (
-              <>
-                <p className="preview-text">{text}</p>
-                <div className="preview-media">{media}</div>
-              </>
-            )}
+            {vertical(item.ratio) ? null : <p className="preview-text">{text}</p>}
+            <Encuadre
+              src={src}
+              video={video}
+              frame={frames[item.id]}
+              reset={defaultFrame(item.id)}
+              onChange={(frame) => onFrame(item.id, frame)}
+              label={`${originLabel(item.network, tx)} ${item.ratioLabel}`}
+              placement={item.id}
+              ratio={item.ratio}
+              placeholder={title}
+              overlay={vertical(item.ratio) ? text : undefined}
+            />
           </figure>
         ))}
       </div>

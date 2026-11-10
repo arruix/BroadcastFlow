@@ -9,6 +9,7 @@ export type PublishInput = {
   body: string;
   link: string;
   imageKey: string | null;
+  frame: { x: number; y: number; zoom: number } | null;
 };
 
 @Injectable()
@@ -18,6 +19,7 @@ export class FacebookGateway {
     publicationId: string;
     imageKey: string | null;
     body: string;
+    frame: { x: number; y: number; zoom: number } | null;
   }[] = [];
   lastToken = '';
 
@@ -60,6 +62,7 @@ export class FacebookGateway {
       publicationId: input.publicationId,
       imageKey: input.imageKey,
       body: input.body,
+      frame: input.frame,
     });
     return this.outcome;
   }

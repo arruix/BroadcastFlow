@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTx } from "@/lib/i18n";
 import { ApiError, api, explain, signedIn } from "@/lib/api";
 import { originColor, originLabel } from "@/lib/origen";
+import { initialFrames, type Frame, type Placement } from "@/lib/encuadre";
 import { PiezaPreview } from "./pieza-preview";
 import { slugify, utmLink } from "@/lib/utm";
 
@@ -33,6 +34,8 @@ export default function NuevaCampana() {
   const [clabe, setClabe] = useState("");
   const [copy, setCopy] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
+  const [frames, setFrames] = useState<Record<Placement, Frame>>(initialFrames);
   const [created, setCreated] = useState<Created | null>(null);
   const [shareSaved, setShareSaved] = useState(false);
   const [copied, setCopied] = useState("");
@@ -90,12 +93,19 @@ export default function NuevaCampana() {
         if (campaign.organizationId) setOrganizationId(campaign.organizationId);
       }
       const org = campaign.organizationId || organizationId;
+      if (!org) throw new ApiError("forbidden", 403);
+      if (imageUrl.trim() && !imageUrl.trim().startsWith("https://")) throw new ApiError("image_invalid", 422);
+      await api(`/campaigns/${campaign.id}/frames`, {
+        method: "PUT",
+        org,
+        body: JSON.stringify({ frames }),
+      });
       if (story.trim() && !shareSaved) {
-        if (!org) throw new ApiError("forbidden", 403);
+        const imageKey = imageUrl.trim().startsWith("https://") ? imageUrl.trim() : null;
         await api(`/campaigns/${campaign.id}/share`, {
           method: "PUT",
           org,
-          body: JSON.stringify({ title: name.trim(), description: story.trim(), imageKey: null }),
+          body: JSON.stringify({ title: name.trim(), description: story.trim(), imageKey }),
         });
         setShareSaved(true);
       }
@@ -176,17 +186,31 @@ export default function NuevaCampana() {
       {step === 2 ? (
         <section className="sheet flex flex-col gap-4">
           <p className="text-sm text-[var(--muted)]">
-            {tx("Crea una sola pieza y mira cómo se vería en cada red. El archivo no se sube: la vista previa ocurre solo en tu navegador.", "Create one piece and see how it would look on each network. The file is not uploaded: the preview happens only in your browser.")}
+            {tx(
+              "Crea una sola pieza y encuádrala en cada red. El archivo no se sube: la vista previa ocurre en tu navegador. El encuadre sí se guarda y se usa al publicar y en la portada.",
+              "Create one piece and frame it for each network. The file is not uploaded: the preview happens in your browser. The framing is saved and used when publishing and on the cover.",
+            )}
           </p>
           <label className="field">
             {tx("Imagen o video", "Image or video")}
             <input type="file" accept="image/*,video/*" onChange={(event) => setFile(event.target.files?.[0] ?? null)} />
           </label>
           <label className="field">
+            {tx("Imagen https para publicar (opcional)", "https image to publish (optional)")}
+            <input value={imageUrl} onChange={(event) => setImageUrl(event.target.value)} placeholder="https://" />
+          </label>
+          <label className="field">
             {tx("Texto de la publicación", "Post text")}
             <textarea rows={3} value={copy} onChange={(event) => setCopy(event.target.value)} placeholder={tx("Cuenta en una o dos frases por qué apoyar.", "Say in one or two sentences why to support.")} />
           </label>
-          <PiezaPreview file={file} text={copy || story || name} title={name} />
+          <PiezaPreview
+            file={file}
+            imageUrl={imageUrl}
+            text={copy || story || name}
+            title={name}
+            frames={frames}
+            onFrame={(placement, frame) => setFrames((current) => ({ ...current, [placement]: frame }))}
+          />
         </section>
       ) : null}
 
@@ -224,7 +248,10 @@ export default function NuevaCampana() {
         {step < 3 ? (
           <button className="btn-primary" type="button" disabled={!canNext} onClick={() => setStep(step + 1)}>{tx("Continuar", "Continue")} →</button>
         ) : created && (shareSaved || !story.trim()) ? (
-          <button className="btn-primary" type="button" onClick={() => router.push(`/campanas/${created.id}`)}>{tx("Publicar aviso y activar", "Publish notice and activate")}</button>
+          <span className="flex flex-wrap gap-2">
+            <Link className="chip" href={`/campanas/${created.id}/pagina`}>{tx("Diseñar la página", "Design the page")}</Link>
+            <button className="btn-primary" type="button" onClick={() => router.push(`/campanas/${created.id}`)}>{tx("Publicar aviso y activar", "Publish notice and activate")}</button>
+          </span>
         ) : (
           <button className="btn-primary" type="button" disabled={busy || !signedIn()} onClick={save}>{busy ? tx("Guardando…", "Saving…") : tx("Guardar campaña", "Save campaign")}</button>
         )}

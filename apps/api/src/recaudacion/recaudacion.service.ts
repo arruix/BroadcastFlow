@@ -85,6 +85,20 @@ export class RecaudacionService {
           share_title: string | null;
           share_description: string | null;
           image_key: string | null;
+          landing_title: string | null;
+          landing_story: string | null;
+          landing_image: string | null;
+          hero_x: number | null;
+          hero_y: number | null;
+          hero_zoom: number | null;
+          accent: string | null;
+          amounts_minor: number[] | null;
+          cta: string | null;
+          show_progress: boolean | null;
+          thank_you: string | null;
+          fb_x: number | null;
+          fb_y: number | null;
+          fb_zoom: number | null;
           live_id: string | null;
           goal_minor: string | null;
           confirmed_minor: string;
@@ -98,6 +112,9 @@ export class RecaudacionService {
                 d.campaign_id AS page_campaign_id,
                 n.id AS notice_id, n.version, n.controller, n.purpose, n.data_categories, n.retention, n.published_at,
                 sh.title AS share_title, sh.description AS share_description, sh.image_key,
+                l.title AS landing_title, l.story AS landing_story, l.image_key AS landing_image,
+                l.hero_x, l.hero_y, l.hero_zoom, l.accent, l.amounts_minor, l.cta, l.show_progress, l.thank_you,
+                fb.focus_x AS fb_x, fb.focus_y AS fb_y, fb.zoom AS fb_zoom,
                 live.id AS live_id,
                 c.goal_minor, progress.confirmed_minor, progress.confirmed_count,
                 progress.intention_minor, progress.intention_count
@@ -107,6 +124,8 @@ export class RecaudacionService {
          LEFT JOIN donation_page d ON d.campaign_id = c.id
          LEFT JOIN privacy_notice n ON n.campaign_id = c.id AND n.published_at IS NOT NULL AND n.retired_at IS NULL
          LEFT JOIN campaign_share sh ON sh.campaign_id = c.id
+         LEFT JOIN campaign_landing l ON l.campaign_id = c.id
+         LEFT JOIN campaign_frame fb ON fb.campaign_id = c.id AND fb.placement = 'facebook'
          LEFT JOIN LATERAL (
            SELECT id FROM live_session WHERE campaign_id = c.id AND status = 'live' ORDER BY started_at DESC LIMIT 1
          ) live ON true
@@ -162,6 +181,38 @@ export class RecaudacionService {
             imageKey: row.image_key,
           }
         : null,
+      landing: row.landing_title
+        ? {
+            title: row.landing_title,
+            story: row.landing_story,
+            imageKey: row.landing_image,
+            hero: {
+              x: Number(row.hero_x),
+              y: Number(row.hero_y),
+              zoom: Number(row.hero_zoom),
+            },
+            accent: row.accent,
+            amountsMinor: (row.amounts_minor ?? []).map((amount) =>
+              Number(amount),
+            ),
+            cta: row.cta ?? '',
+            showProgress: row.show_progress !== false,
+            thankYou: row.thank_you ?? '',
+          }
+        : null,
+      coverFrame: row.landing_title
+        ? {
+            x: Number(row.hero_x),
+            y: Number(row.hero_y),
+            zoom: Number(row.hero_zoom),
+          }
+        : row.fb_x == null
+          ? null
+          : {
+              x: Number(row.fb_x),
+              y: Number(row.fb_y),
+              zoom: Number(row.fb_zoom),
+            },
       live: row.live_id ? { playbackUrl: playbackUrl(row.live_id) } : null,
       goalMinor: row.goal_minor === null ? null : Number(row.goal_minor),
       progress: presentProgress(row),
@@ -309,11 +360,23 @@ export class RecaudacionService {
   async receipt(donationId: string) {
     if (!/^[0-9a-f-]{36}$/i.test(donationId)) throw new NotFoundException();
     const found = await this.db.asWorker((db) =>
-      db.query<DonationRow>(donationSelect, [donationId]),
+      db.query<DonationRow & { thank_you: string | null }>(
+        `SELECT d.id, d.status, d.gross_minor, d.net_minor, d.processor_fee_minor,
+                d.platform_fee_minor, d.currency, d.privacy_notice_id,
+                NULL::text AS donor_name, NULL::text AS donor_email, NULL::timestamptz AS anonymized_at,
+                NULLIF(l.thank_you, '') AS thank_you
+         FROM donation d
+         LEFT JOIN campaign_landing l ON l.campaign_id = d.campaign_id
+         WHERE d.id = $1`,
+        [donationId],
+      ),
     );
     const row = found.rows[0];
     if (!row) throw new NotFoundException();
-    return publicDonationRecord(row);
+    return {
+      ...publicDonationRecord(row),
+      thankYou: row.thank_you,
+    };
   }
 
   // Cobro simulado: firma el webhook con la llave interna. Solo existe para
